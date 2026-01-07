@@ -14,8 +14,11 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
-  render: () => (
-    <ToggleGroup type="single">
+  args: {
+    type: 'single',
+  },
+  render: (args) => (
+    <ToggleGroup {...args}>
       <ToggleGroupItem value="a">A</ToggleGroupItem>
       <ToggleGroupItem value="b">B</ToggleGroupItem>
       <ToggleGroupItem value="c">C</ToggleGroupItem>
@@ -24,8 +27,11 @@ export const Default: Story = {
 };
 
 export const Multiple: Story = {
-  render: () => (
-    <ToggleGroup type="multiple">
+  args: {
+    type: 'multiple',
+  },
+  render: (args) => (
+    <ToggleGroup {...args}>
       <ToggleGroupItem value="bold">Bold</ToggleGroupItem>
       <ToggleGroupItem value="italic">Italic</ToggleGroupItem>
       <ToggleGroupItem value="underline">Underline</ToggleGroupItem>

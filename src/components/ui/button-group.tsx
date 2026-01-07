@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { Button, buttonVariants, type ButtonProps } from './button';
+import { buttonVariants, type ButtonProps } from './button';
 
 interface ButtonGroupProps extends React.HTMLAttributes<HTMLDivElement> {
   orientation?: 'horizontal' | 'vertical';
