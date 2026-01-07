@@ -18,7 +18,7 @@ const config: StorybookConfig = {
   },
   async viteFinal(config) {
     return mergeConfig(config, {
-      base: '/',
+      base: '/product-design/',
       resolve: {
         alias: {
           '@': path.resolve(process.cwd(), 'src'),

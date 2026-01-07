@@ -1,4 +1,4 @@
-# zluri-product-design.github.io
+# product-design
 
 Storybook component library for Zluri product design system.
 
@@ -25,7 +25,7 @@ The build output will be in the `storybook-static` directory.
 
 ## Deployment
 
-This Storybook is automatically deployed to GitHub Pages at `https://zluri-product-design.github.io` via GitHub Actions.
+This Storybook is automatically deployed to GitHub Pages at `https://somnath-zluri.github.io/product-design/` via GitHub Actions.
 
 ### Automatic Deployment
 
@@ -47,4 +47,4 @@ To enable GitHub Pages for this repository:
 3. Under **Source**, select **GitHub Actions**
 4. The workflow will automatically deploy on the next push to `main`/`master`
 
-Your Storybook will be live at: `https://zluri-product-design.github.io`
+Your Storybook will be live at: `https://somnath-zluri.github.io/product-design/`
