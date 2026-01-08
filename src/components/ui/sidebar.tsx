@@ -14,19 +14,25 @@ const SidebarContext = React.createContext<{
   state: 'expanded' | 'collapsed';
   open: boolean;
   setOpen: (open: boolean) => void;
+  toggleState: () => void;
 }>({
   state: 'expanded',
   open: false,
   setOpen: () => {},
+  toggleState: () => {},
 });
 
 const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(
   ({ className, side = 'left', variant = 'sidebar', theme, children, ...props }, ref) => {
     const [open, setOpen] = React.useState(false);
-    const [state] = React.useState<'expanded' | 'collapsed'>('expanded');
+    const [state, setState] = React.useState<'expanded' | 'collapsed'>('collapsed');
+    
+    const toggleState = React.useCallback(() => {
+      setState((prev) => (prev === 'expanded' ? 'collapsed' : 'expanded'));
+    }, []);
 
     return (
-      <SidebarContext.Provider value={{ state, open, setOpen }}>
+      <SidebarContext.Provider value={{ state, open, setOpen, toggleState }}>
         <div
           ref={ref}
           className={cn(
@@ -49,7 +55,7 @@ const SidebarTrigger = React.forwardRef<
   React.ElementRef<typeof Button>,
   React.ComponentProps<typeof Button>
 >(({ className, ...props }, ref) => {
-  const { setOpen } = React.useContext(SidebarContext);
+  const { toggleState } = React.useContext(SidebarContext);
 
   return (
     <Button
@@ -57,7 +63,7 @@ const SidebarTrigger = React.forwardRef<
       variant="ghost"
       size="icon"
       className={cn('h-7 w-7', className)}
-      onClick={() => setOpen(true)}
+      onClick={toggleState}
       {...props}
     >
       <PanelLeft className="h-4 w-4" />
@@ -71,11 +77,15 @@ const SidebarContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => {
+  const { state } = React.useContext(SidebarContext);
+  const isCollapsed = state === 'collapsed';
+  
   return (
     <div
       ref={ref}
       className={cn(
-        'flex h-full w-64 flex-col border-r bg-background',
+        'flex h-full flex-col border-r bg-background transition-all duration-300',
+        'w-fit',
         className
       )}
       {...props}
@@ -133,7 +143,7 @@ const SidebarMenu = React.forwardRef<
   return (
     <ul
       ref={ref}
-      className={cn('flex flex-col gap-1 p-4 w-full', className)}
+      className={cn('flex flex-col gap-3 p-4 w-fit', className)}
       {...props}
     />
   );
@@ -176,9 +186,14 @@ SidebarMenuButton.displayName = 'SidebarMenuButton';
 
 const SidebarProvider = ({ children }: { children: React.ReactNode }) => {
   const [open, setOpen] = React.useState(false);
+  const [state, setState] = React.useState<'expanded' | 'collapsed'>('collapsed');
+  
+  const toggleState = React.useCallback(() => {
+    setState((prev) => (prev === 'expanded' ? 'collapsed' : 'expanded'));
+  }, []);
 
   return (
-    <SidebarContext.Provider value={{ state: 'expanded', open, setOpen }}>
+    <SidebarContext.Provider value={{ state, open, setOpen, toggleState }}>
       {children}
     </SidebarContext.Provider>
   );
@@ -195,5 +210,6 @@ export {
   SidebarMenuButton,
   SidebarProvider,
   SidebarTrigger,
+  SidebarContext,
 };
 

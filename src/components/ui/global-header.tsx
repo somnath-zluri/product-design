@@ -12,7 +12,9 @@ export function GlobalHeader({ className }: GlobalHeaderProps) {
     <header className={`flex h-16 items-center justify-between border-b border-border/40 bg-[#1a1a1a] px-6 ${className || ''}`}>
       {/* Left: Logo */}
       <div className="flex items-center">
-        <span className="text-xl font-semibold text-white">IGA</span>
+        <div className="text-xl font-semibold text-white">
+          IGA
+        </div>
       </div>
 
       {/* Center: Global Search */}
