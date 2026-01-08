@@ -25,12 +25,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const UARStory: Story = {
-  name: 'UAR',
+  name: 'Issue - Dropdown Clipping',
   render: () => <UAR />,
-};
-
-export const UARWithControlsBelowTitle: Story = {
-  name: 'UAR - Controls Below Title',
-  render: () => <UAR controlsBelowTitle={true} />,
 };
 

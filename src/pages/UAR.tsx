@@ -31,7 +31,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import * as React from 'react';
-import { ChevronLeft, Search, ChevronRight } from 'lucide-react';
+import { ChevronLeft, Search, ChevronRight, AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import { FaApple, FaWindows } from 'react-icons/fa';
 import {
   ColumnDef,
@@ -112,6 +112,7 @@ export function UAR({ className, controlsBelowTitle = false }: UARProps) {
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [currentHorizontalStep, setCurrentHorizontalStep] = React.useState(1);
   const [currentVerticalStep, setCurrentVerticalStep] = React.useState(1);
+  const [dropdownAlign, setDropdownAlign] = React.useState<'start' | 'center' | 'end'>('center');
 
   const table = useReactTable({
     data: tableData,
@@ -185,7 +186,6 @@ export function UAR({ className, controlsBelowTitle = false }: UARProps) {
                   {/* Left Column - Title and Footer */}
                   <div className="w-[464px] border-r bg-background flex flex-col">
                     <div className="p-6">
-                      <h2 className="text-lg font-semibold">{horizontalSteps[currentHorizontalStep]?.label || 'Scope Applications'}</h2>
                     </div>
                     {/* Footer - Inside First Column of Product Area */}
                     <footer className="mt-auto border-t bg-background px-6 py-4">
@@ -230,7 +230,10 @@ export function UAR({ className, controlsBelowTitle = false }: UARProps) {
                                 <span className="sr-only">Search</span>
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-[300px] p-0" align="end">
+                            <PopoverContent 
+                              className="w-[300px] p-0" 
+                              align={dropdownAlign}
+                            >
                               <div className="p-3 border-b">
                                 <div className="flex flex-col items-start justify-start gap-2">
                                   <div className="w-full relative">
@@ -319,7 +322,10 @@ export function UAR({ className, controlsBelowTitle = false }: UARProps) {
                                 <span className="sr-only">Search</span>
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-[300px] p-0" align="end">
+                            <PopoverContent 
+                              className="w-[300px] p-0" 
+                              align={dropdownAlign}
+                            >
                               <div className="p-3 border-b">
                                 <div className="flex flex-col items-start justify-start gap-2">
                                   <div className="w-full relative">
