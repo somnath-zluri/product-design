@@ -547,8 +547,8 @@ export function UAR({
                             <TabsContent value="overview" className="mt-4 flex flex-col gap-6">
                               {moveHeaderDetailsToSidebar ? (
                                 <div className="flex flex-col gap-2">
-                                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                                    Application Description
+                                  <span className="text-[10px] font-medium tracking-wide text-muted-foreground">
+                                    Application description
                                   </span>
                                   {headerDescriptionBlock}
                                 </div>
@@ -563,8 +563,8 @@ export function UAR({
                           <>
                             {moveHeaderDetailsToSidebar ? (
                               <div className="flex flex-col gap-2">
-                                <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                                  Application Description
+                                <span className="text-[10px] font-medium tracking-wide text-muted-foreground">
+                                  Application description
                                 </span>
                                 {headerDescriptionBlock}
                               </div>
