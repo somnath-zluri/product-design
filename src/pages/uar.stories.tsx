@@ -26,6 +26,6 @@ type Story = StoryObj<typeof meta>;
 
 export const UARStory: Story = {
   name: 'Issue - Dropdown Clipping',
-  render: () => <UAR />,
+  render: () => <UAR showLeftPanel={false} />,
 };
 
