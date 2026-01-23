@@ -27,6 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Progress } from '@/components/ui/progress';
 import {
   Table,
   TableBody,
@@ -36,7 +37,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import * as React from 'react';
-import { ChevronLeft, Search, ChevronRight, AlignLeft, AlignCenter, AlignRight, SlidersHorizontal } from 'lucide-react';
+import { ChevronLeft, Search, ChevronRight, AlignLeft, AlignCenter, AlignRight, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { FaApple, FaWindows } from 'react-icons/fa';
 import { SiJira, SiFigma, SiGithub, SiSlack, SiNotion } from 'react-icons/si';
 import { ShieldCheck } from 'lucide-react';
@@ -73,6 +74,8 @@ interface UARProps {
   showRiskScoreColumn?: boolean;
   moveHeaderDetailsToSidebar?: boolean;
   sidebarHasTabs?: boolean;
+  firstColumnHeader?: string;
+  showTimeRemainingColumn?: boolean;
 }
 
 interface TableData {
@@ -150,7 +153,11 @@ const appIcons: Record<string, React.ComponentType<{ className?: string }>> = {
 };
 const getAppIncludedCount = (index: number) => ((index * 137) % 999) + 1;
 const getUsersIncludedCount = (index: number) => ((index * 521) % 4991) + 10;
-const getDueInDays = (index: number) => ((index * 17) % 90) + 1;
+const getDueInDays = (index: number) => {
+  // Generate values from -10 (10 days overdue) to 90 (90 days remaining)
+  const value = ((index * 17) % 101) - 10;
+  return value;
+};
 const getInsightsPercent = (index: number) => (index * 9) % 101;
 const getRiskLevel = (index: number) => {
   const roll = index % 3;
@@ -192,8 +199,21 @@ const frozenTableRows = Array.from({ length: 50 }, (_, index) => {
     col8: `${getInsightsPercent(index)}% of users`,
     riskLevel: getRiskLevel(index),
     riskScore: getRiskScore(index),
-    col9: index % 3 === 0 ? 'At risk' : 'On-track',
-    actionLabel: index % 2 === 0 ? 'View' : 'Continue Review',
+    col9: (() => {
+      const daysRemaining = getDueInDays(index);
+      // All overdue items = Overdue
+      if (daysRemaining < 0) {
+        return 'Overdue';
+      }
+      // 0-3 days remaining = At-risk
+      if (daysRemaining <= 3) {
+        return 'At-risk';
+      }
+      // More than 3 days remaining = On-track
+      return 'On-track';
+    })(),
+    progress: Math.min(100, Math.max(0, (index % 10) * 10 + (index % 3) * 5)),
+    actionLabel: 'Review',
   };
 })
   .sort((a, b) => a.col5Days - b.col5Days);
@@ -223,6 +243,8 @@ export function UAR({
   showRiskScoreColumn = false,
   moveHeaderDetailsToSidebar = false,
   sidebarHasTabs = false,
+  firstColumnHeader,
+  showTimeRemainingColumn = false,
 }: UARProps) {
   const deadlineCard = showDeadlineCard ? (
     <div className="relative flex flex-col items-start">
@@ -237,10 +259,10 @@ export function UAR({
     </div>
   ) : null;
   const radioCardItems = [
-    { label: 'Pending', value: 128, radioLabel: 'Pending' },
-    { label: 'Completed', value: 512, radioLabel: 'Completed' },
+    { label: 'Open', value: 128, radioLabel: 'Open' },
     { label: 'Overdue', value: 13, radioLabel: 'Overdue' },
-    { label: 'Due in', radioLabel: 'Due in', type: 'dropdown' as const },
+    { label: 'Due in', value: 64, radioLabel: 'Due in', type: 'dropdown' as const },
+    { label: 'Completed', value: 512, radioLabel: 'Completed' },
   ];
   const dueRangeOptions = [
     { value: 'today', label: 'Due today' },
@@ -274,32 +296,70 @@ export function UAR({
   const [currentHorizontalStep, setCurrentHorizontalStep] = React.useState(1);
   const [currentVerticalStep, setCurrentVerticalStep] = React.useState(1);
   const [dropdownAlign, setDropdownAlign] = React.useState<'start' | 'center' | 'end'>('center');
-  const frozenPageCount = Math.ceil(frozenTableRows.length / frozenPageSize);
+  const [sortColumn, setSortColumn] = React.useState<string | null>('col5Days');
+  const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('asc');
+
+  // Sort the data based on current sort column and direction
+  const sortedTableRows = React.useMemo(() => {
+    if (!sortColumn) return frozenTableRows;
+    
+    const sorted = [...frozenTableRows].sort((a, b) => {
+      let aValue: any = a[sortColumn as keyof typeof a];
+      let bValue: any = b[sortColumn as keyof typeof b];
+      
+      // Handle numeric values
+      if (sortColumn === 'col5Days' || sortColumn === 'progress' || sortColumn === 'riskScore') {
+        aValue = Number(aValue) || 0;
+        bValue = Number(bValue) || 0;
+      }
+      // Handle string values
+      else if (typeof aValue === 'string' && typeof bValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    
+    return sorted;
+  }, [sortColumn, sortDirection]);
+
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      // Toggle direction if clicking the same column
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Set new column with ascending as default
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const frozenPageCount = Math.ceil(sortedTableRows.length / frozenPageSize);
   const frozenPageStart = frozenPageIndex * frozenPageSize;
-  const frozenPageEnd = Math.min(frozenPageStart + frozenPageSize, frozenTableRows.length);
-  const frozenPageRows = frozenTableRows.slice(frozenPageStart, frozenPageEnd);
+  const frozenPageEnd = Math.min(frozenPageStart + frozenPageSize, sortedTableRows.length);
+  const frozenPageRows = sortedTableRows.slice(frozenPageStart, frozenPageEnd);
   const headerDescriptionBlock = showHeaderDescription ? (
-    <div className="flex items-center gap-2 text-sm text-foreground max-w-[520px]">
+    <div className="text-sm text-foreground max-w-[520px]">
       <p className="line-clamp-3">
         Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor. Ut enim ad minim.
-        Et
+        Et... <button className="text-sm text-foreground underline underline-offset-2">Read more</button>
       </p>
-      <button className="shrink-0 text-sm text-foreground underline underline-offset-2">Read more</button>
     </div>
   ) : null;
   const headerKeyValueBlock = (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <span className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">Status</span>
-        <Badge variant="secondary" className="w-fit border-transparent text-xs font-semibold">
-          On-track
-        </Badge>
-      </div>
-      <div className="flex flex-col gap-1">
-        <span className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">Days remaining</span>
-        <Badge variant="secondary" className="border-transparent text-xs font-semibold">
-          9 days remaining
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="w-fit border-transparent text-xs font-semibold">
+            On-track
+          </Badge>
+          <Separator orientation="vertical" className="h-4" />
+          <span className="text-xs text-muted-foreground">9 days remaining</span>
+        </div>
       </div>
       <div className="flex flex-col gap-1">
         <span className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">Owner</span>
@@ -539,36 +599,26 @@ export function UAR({
                     <div className="w-[320px] border-r bg-background flex flex-col">
                       <div className="p-4 flex flex-col gap-6">
                         {sidebarHasTabs ? (
-                          <Tabs defaultValue="overview" className="w-full">
-                            <TabsList className="w-fit justify-start">
-                              <TabsTrigger value="overview" className="flex-1 justify-center">
-                                Info
-                              </TabsTrigger>
-                              <TabsTrigger value="details" className="flex-1 justify-center">
-                                Advance filters
-                              </TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="overview" className="mt-4 flex flex-col gap-6">
+                          <>
+                            <h2 className="text-lg font-semibold">Certification Details</h2>
+                            <div className="flex flex-col gap-6">
                               {moveHeaderDetailsToSidebar ? (
                                 <div className="flex flex-col gap-2">
-                                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                                    Application Description
+                                  <span className="text-[10px] font-medium tracking-wide text-muted-foreground">
+                                    Description
                                   </span>
                                   {headerDescriptionBlock}
                                 </div>
                               ) : null}
                               {moveHeaderDetailsToSidebar ? headerKeyValueBlock : null}
-                            </TabsContent>
-                            <TabsContent value="details" className="mt-4 text-sm text-muted-foreground">
-                              No additional details yet.
-                            </TabsContent>
-                          </Tabs>
+                            </div>
+                          </>
                         ) : (
                           <>
                             {moveHeaderDetailsToSidebar ? (
                               <div className="flex flex-col gap-2">
-                                <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                                  Application Description
+                                <span className="text-[10px] font-medium tracking-wide text-muted-foreground">
+                                  Description
                                 </span>
                                 {headerDescriptionBlock}
                               </div>
@@ -769,9 +819,9 @@ export function UAR({
                       )
                     ) : null}
 
-                    {showRadioCard ? (
-                      <div className="flex flex-1 min-h-0 flex-col px-4 py-4">
-                        <Tabs defaultValue="applications">
+                    <div className="flex flex-1 min-h-0 flex-col px-4 py-4">
+                      <Tabs defaultValue="applications">
+                        {showRadioCard ? (
                           <TabsContent value="applications">
                             <RadioGroup
                               value={`applications-${selectedCardIndex}`}
@@ -787,23 +837,26 @@ export function UAR({
                                 <Label
                                   key={index}
                                   htmlFor={`applications-radio-${index}`}
-                                  className="flex cursor-pointer items-stretch rounded-lg border bg-background p-5 transition-colors hover:bg-muted/40 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-muted/60"
+                                  className={`flex cursor-pointer items-stretch rounded-lg border bg-background transition-colors hover:bg-muted/40 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-muted/60 ${item.type === 'dropdown' ? 'p-0' : 'p-5'}`}
                                 >
-                                  <div className="flex flex-1 items-start justify-between gap-6">
+                                  <div className={`flex flex-1 items-start justify-between gap-6 ${item.type === 'dropdown' ? 'p-5' : ''}`}>
                                   <div className="grid gap-2">
                                     {item.type === 'dropdown' ? (
-                                      <Select value={dueRange} onValueChange={setDueRange}>
-                                        <SelectTrigger className="h-auto w-auto justify-start gap-1 border-0 bg-transparent px-0 text-xs font-medium uppercase tracking-wide text-muted-foreground shadow-none focus:ring-0">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {dueRangeOptions.map((option) => (
-                                            <SelectItem key={option.value} value={option.value}>
-                                              {option.label}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
+                                      <>
+                                        <Select value={dueRange} onValueChange={setDueRange}>
+                                          <SelectTrigger className="h-auto w-auto items-start justify-start gap-1 border-0 bg-transparent px-0 py-0 text-xs font-medium uppercase tracking-wide text-muted-foreground shadow-none focus:ring-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:mt-0.5">
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {dueRangeOptions.map((option) => (
+                                              <SelectItem key={option.value} value={option.value}>
+                                                {option.label}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                        <div className="text-3xl font-semibold">{item.value}</div>
+                                      </>
                                     ) : (
                                       <>
                                         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -824,6 +877,8 @@ export function UAR({
                               ))}
                             </RadioGroup>
                           </TabsContent>
+                        ) : null}
+                        {showRadioCard ? (
                           <TabsContent value="groups">
                             <RadioGroup
                               value={`groups-${selectedCardIndex}`}
@@ -839,23 +894,26 @@ export function UAR({
                                 <Label
                                   key={index}
                                   htmlFor={`groups-radio-${index}`}
-                                  className="flex cursor-pointer items-stretch rounded-lg border bg-background p-5 transition-colors hover:bg-muted/40 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-muted/60"
+                                  className={`flex cursor-pointer items-stretch rounded-lg border bg-background transition-colors hover:bg-muted/40 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-muted/60 ${item.type === 'dropdown' ? 'p-0' : 'p-5'}`}
                                 >
-                                  <div className="flex flex-1 items-start justify-between gap-6">
+                                  <div className={`flex flex-1 items-start justify-between gap-6 ${item.type === 'dropdown' ? 'p-5' : ''}`}>
                                   <div className="grid gap-2">
                                     {item.type === 'dropdown' ? (
-                                      <Select value={dueRange} onValueChange={setDueRange}>
-                                        <SelectTrigger className="h-auto w-auto justify-start gap-1 border-0 bg-transparent px-0 text-xs font-medium uppercase tracking-wide text-muted-foreground shadow-none focus:ring-0">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {dueRangeOptions.map((option) => (
-                                            <SelectItem key={option.value} value={option.value}>
-                                              {option.label}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
+                                      <>
+                                        <Select value={dueRange} onValueChange={setDueRange}>
+                                          <SelectTrigger className="h-auto w-auto items-start justify-start gap-1 border-0 bg-transparent px-0 py-0 text-xs font-medium uppercase tracking-wide text-muted-foreground shadow-none focus:ring-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:mt-0.5">
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {dueRangeOptions.map((option) => (
+                                              <SelectItem key={option.value} value={option.value}>
+                                                {option.label}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                        <div className="text-3xl font-semibold">{item.value}</div>
+                                      </>
                                     ) : (
                                       <>
                                         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -876,6 +934,8 @@ export function UAR({
                               ))}
                             </RadioGroup>
                           </TabsContent>
+                        ) : null}
+                        {showRadioCard ? (
                           <TabsContent value="users">
                             <RadioGroup
                               value={`users-${selectedCardIndex}`}
@@ -891,23 +951,26 @@ export function UAR({
                                 <Label
                                   key={index}
                                   htmlFor={`users-radio-${index}`}
-                                  className="flex cursor-pointer items-stretch rounded-lg border bg-background p-5 transition-colors hover:bg-muted/40 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-muted/60"
+                                  className={`flex cursor-pointer items-stretch rounded-lg border bg-background transition-colors hover:bg-muted/40 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-muted/60 ${item.type === 'dropdown' ? 'p-0' : 'p-5'}`}
                                 >
-                                  <div className="flex flex-1 items-start justify-between gap-6">
+                                  <div className={`flex flex-1 items-start justify-between gap-6 ${item.type === 'dropdown' ? 'p-5' : ''}`}>
                                   <div className="grid gap-2">
                                     {item.type === 'dropdown' ? (
-                                      <Select value={dueRange} onValueChange={setDueRange}>
-                                        <SelectTrigger className="h-auto w-auto justify-start gap-1 border-0 bg-transparent px-0 text-xs font-medium uppercase tracking-wide text-muted-foreground shadow-none focus:ring-0">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {dueRangeOptions.map((option) => (
-                                            <SelectItem key={option.value} value={option.value}>
-                                              {option.label}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
+                                      <>
+                                        <Select value={dueRange} onValueChange={setDueRange}>
+                                          <SelectTrigger className="h-auto w-auto items-start justify-start gap-1 border-0 bg-transparent px-0 py-0 text-xs font-medium uppercase tracking-wide text-muted-foreground shadow-none focus:ring-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:mt-0.5">
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {dueRangeOptions.map((option) => (
+                                              <SelectItem key={option.value} value={option.value}>
+                                                {option.label}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                        <div className="text-3xl font-semibold">{item.value}</div>
+                                      </>
                                     ) : (
                                       <>
                                         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -928,8 +991,9 @@ export function UAR({
                               ))}
                             </RadioGroup>
                           </TabsContent>
+                        ) : null}
                         {showRadioTabs ? (
-                          <TabsList className="mt-6 w-full justify-start rounded-none border-b bg-transparent p-0">
+                          <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
                             {tabItems.map((tab) => (
                               <TabsTrigger
                                 key={tab.value}
@@ -945,9 +1009,28 @@ export function UAR({
                           </TabsList>
                         ) : null}
                         </Tabs>
-                        <div className="mt-6 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+                        <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
                           <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-background px-4 py-3">
                             <div className="flex flex-wrap items-center gap-2">
+                              <div className="relative">
+                                <label
+                                  className="absolute -top-2 left-2 bg-background px-1 text-[10px] text-muted-foreground"
+                                  htmlFor="view-by-select"
+                                >
+                                  View by
+                                </label>
+                                <Select defaultValue="all">
+                                  <SelectTrigger id="view-by-select" className="h-9 w-[160px]">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="all">All</SelectItem>
+                                    <SelectItem value="applications">Applications</SelectItem>
+                                    <SelectItem value="groups">Groups</SelectItem>
+                                    <SelectItem value="users">Users</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
                               <div className="relative">
                                 <label
                                   className="absolute -top-2 left-2 bg-background px-1 text-[10px] text-muted-foreground"
@@ -1005,38 +1088,115 @@ export function UAR({
                               </div>
                             </div>
                           </div>
-                        <div className="flex-1 overflow-auto">
+                        <div className="flex-1 overflow-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
                             <Table className="min-w-[900px]">
-                            <TableHeader className="sticky top-0 z-20 bg-background">
+                            <TableHeader className="sticky top-0 z-20 bg-muted border-b [&_tr]:border-b">
                               <TableRow>
-                                <TableHead className="py-2 text-xs">Application</TableHead>
-                                <TableHead className="py-2 text-xs">Owner</TableHead>
-                                {showRiskScoreColumn ? (
-                                  <TableHead className="py-2 text-xs">Entity Risk Sensitivity</TableHead>
+                                <TableHead 
+                                  className={`py-2 text-xs w-[360px] cursor-pointer select-none transition-colors ${
+                                    sortColumn === 'col1' 
+                                      ? 'bg-primary/10 text-primary font-semibold border-b-2 border-primary' 
+                                      : 'bg-muted hover:bg-muted/80'
+                                  }`}
+                                  onClick={() => handleSort('col1')}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span>{firstColumnHeader ?? 'Certification'}</span>
+                                    {sortColumn === 'col1' ? (
+                                      sortDirection === 'asc' ? (
+                                        <ArrowUp className="h-4 w-4 text-primary font-bold" />
+                                      ) : (
+                                        <ArrowDown className="h-4 w-4 text-primary font-bold" />
+                                      )
+                                    ) : (
+                                      <ArrowUpDown className="h-3 w-3 opacity-40" />
+                                    )}
+                                  </div>
+                                </TableHead>
+                                <TableHead 
+                                  className={`py-2 text-xs cursor-pointer select-none transition-colors ${
+                                    sortColumn === 'col2' 
+                                      ? 'bg-primary/10 text-primary font-semibold border-b-2 border-primary' 
+                                      : 'bg-muted hover:bg-muted/80'
+                                  }`}
+                                  onClick={() => handleSort('col2')}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span>Owner</span>
+                                    {sortColumn === 'col2' ? (
+                                      sortDirection === 'asc' ? (
+                                        <ArrowUp className="h-4 w-4 text-primary font-bold" />
+                                      ) : (
+                                        <ArrowDown className="h-4 w-4 text-primary font-bold" />
+                                      )
+                                    ) : (
+                                      <ArrowUpDown className="h-3 w-3 opacity-40" />
+                                    )}
+                                  </div>
+                                </TableHead>
+                                {showTimeRemainingColumn ? (
+                                  <TableHead 
+                                    className={`py-2 text-xs cursor-pointer select-none transition-colors ${
+                                      sortColumn === 'col5Days' 
+                                        ? 'bg-primary/10 text-primary font-semibold border-b-2 border-primary' 
+                                        : 'bg-muted hover:bg-muted/80'
+                                    }`}
+                                    onClick={() => handleSort('col5Days')}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span>Time remaining</span>
+                                      {sortColumn === 'col5Days' ? (
+                                        sortDirection === 'asc' ? (
+                                          <ArrowUp className="h-4 w-4 text-primary font-bold" />
+                                        ) : (
+                                          <ArrowDown className="h-4 w-4 text-primary font-bold" />
+                                        )
+                                      ) : (
+                                        <ArrowUpDown className="h-3 w-3 opacity-40" />
+                                      )}
+                                    </div>
+                                  </TableHead>
                                 ) : null}
-                                {!hideAppIncludedColumn ? (
-                                  <TableHead className="py-2 text-xs">App included</TableHead>
+                                <TableHead 
+                                  className={`py-2 text-xs cursor-pointer select-none transition-colors ${
+                                    sortColumn === 'progress' 
+                                      ? 'bg-primary/10 text-primary font-semibold border-b-2 border-primary' 
+                                      : 'bg-muted hover:bg-muted/80'
+                                  }`}
+                                  onClick={() => handleSort('progress')}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span>Progress</span>
+                                    {sortColumn === 'progress' ? (
+                                      sortDirection === 'asc' ? (
+                                        <ArrowUp className="h-4 w-4 text-primary font-bold" />
+                                      ) : (
+                                        <ArrowDown className="h-4 w-4 text-primary font-bold" />
+                                      )
+                                    ) : (
+                                      <ArrowUpDown className="h-3 w-3 opacity-40" />
+                                    )}
+                                  </div>
+                                </TableHead>
+                                {showRiskScoreColumn ? (
+                                  <TableHead className="py-2 text-xs bg-muted">App Risk Sensitivity</TableHead>
                                 ) : null}
                                 {!hideUsersIncludedColumn ? (
-                                  <TableHead className="py-2 text-xs">Users included</TableHead>
+                                  <TableHead className="py-2 text-xs bg-muted">Records</TableHead>
                                 ) : null}
                                 {!hideInsightsColumn ? (
-                                  <TableHead className="py-2 text-xs">Insights available for</TableHead>
+                                  <TableHead className="py-2 text-xs bg-muted">Bulk action eligible</TableHead>
                                 ) : null}
-                                <TableHead className="py-2 text-xs">Action</TableHead>
+                                <TableHead className="py-2 text-xs bg-muted">Action</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
                               {frozenPageRows.map((row) => (
                                 <TableRow key={row.id}>
-                                  <TableCell className="py-2 text-sm">
-                                    <div className="flex items-center gap-2">
-                                      {(() => {
-                                        const AppIcon = appIcons[row.appBaseName];
-                                        return AppIcon ? <AppIcon className="h-4 w-4 text-muted-foreground" /> : null;
-                                      })()}
-                                      <span>{row.appBaseName}</span>
-                                    </div>
+                                  <TableCell className="py-2 text-sm w-[360px]">
+                                    <span className="truncate max-w-[340px] block" title={firstColumnHeader === 'Application' ? row.appBaseName : row.col1}>
+                                      {firstColumnHeader === 'Application' ? row.appBaseName : row.col1}
+                                    </span>
                                   </TableCell>
                                   <TableCell className="py-2 text-sm">
                                     <div className="flex items-center gap-2">
@@ -1050,9 +1210,50 @@ export function UAR({
                                       </span>
                                     </div>
                                   </TableCell>
+                                  {showTimeRemainingColumn ? (
+                                    <TableCell className="py-2 text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <span>
+                                          {row.col5Days < 0
+                                            ? `${Math.abs(row.col5Days)} days ago`
+                                            : `${row.col5Days} days left`}
+                                        </span>
+                                        <Badge
+                                          variant="secondary"
+                                          className={`inline-block max-w-[120px] min-w-0 border-transparent text-xs font-semibold overflow-hidden text-ellipsis whitespace-nowrap [&>*]:truncate ${
+                                            row.col9 === 'Overdue'
+                                              ? 'bg-red-100 text-red-700'
+                                              : row.col9 === 'At-risk'
+                                              ? 'bg-orange-100 text-orange-700'
+                                              : 'bg-green-100 text-green-700'
+                                          }`}
+                                        >
+                                          {row.col9 === 'Overdue'
+                                            ? 'Overdue'
+                                            : row.col9 === 'At-risk'
+                                            ? 'At-Risk'
+                                            : 'On-Track'}
+                                        </Badge>
+                                      </div>
+                                    </TableCell>
+                                  ) : null}
+                                  <TableCell className="py-2 text-sm">
+                                    <div className="flex items-center gap-2 w-[120px]">
+                                      <div className="relative h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
+                                        <div
+                                          className="h-full transition-all rounded-full"
+                                          style={{
+                                            width: `${row.progress}%`,
+                                            backgroundColor: 'hsl(142, 71%, 45%)',
+                                          }}
+                                        />
+                                      </div>
+                                      <span className="text-xs whitespace-nowrap">{row.progress}%</span>
+                                    </div>
+                                  </TableCell>
                                   {showRiskScoreColumn ? (
                                     <TableCell className="py-2 text-sm">
-                                      {renderRiskGauge(row.riskLevel, row.riskScore)}
+                                      {renderRiskGauge(row.riskLevel as 'High' | 'Medium' | 'Low', row.riskScore)}
                                     </TableCell>
                                   ) : null}
                                   {!hideAppIncludedColumn ? (
@@ -1062,10 +1263,23 @@ export function UAR({
                                     <TableCell className="py-2 text-sm">{formatNumber(row.col7)}</TableCell>
                                   ) : null}
                                   {!hideInsightsColumn ? (
-                                    <TableCell className="py-2 text-sm">{row.col8}</TableCell>
+                                    <TableCell className="py-2 text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm">{row.col8}</span>
+                                        <Separator orientation="vertical" className="h-4" />
+                                        <Badge variant="secondary" className="w-[100px] border-transparent text-xs font-semibold justify-center">
+                                          {(() => {
+                                            const match = row.col8.match(/(\d+)%/);
+                                            const percent = match ? parseInt(match[1]) : 0;
+                                            const records = Math.floor((percent / 100) * parseInt(row.col7.replace(/,/g, '')) || 0);
+                                            return `${records} records`;
+                                          })()}
+                                        </Badge>
+                                      </div>
+                                    </TableCell>
                                   ) : null}
                                   <TableCell className="py-2">
-                                    <Button size="sm" className="h-7 w-[140px] text-xs">
+                                    <Button size="sm" className="h-7 text-xs">
                                       {row.actionLabel}
                                     </Button>
                                   </TableCell>
@@ -1101,11 +1315,10 @@ export function UAR({
                           </div>
                         </div>
                       </div>
-                    ) : null}
 
                     {/* DataTable */}
                     {showTable ? (
-                      <div className="flex-1 overflow-auto px-4">
+                      <div className="flex-1 overflow-auto px-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
                         <Table>
                           <TableHeader>
                             <TableRow>

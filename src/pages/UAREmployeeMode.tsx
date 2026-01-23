@@ -55,6 +55,7 @@ export function UAREmployeeMode({
       hideAppIncludedColumn={hideAppIncludedColumn}
       hideUsersIncludedColumn={hideUsersIncludedColumn}
       showRiskScoreColumn={showRiskScoreColumn}
+      showTimeRemainingColumn={true}
     />
   );
 }

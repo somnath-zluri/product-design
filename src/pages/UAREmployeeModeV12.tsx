@@ -44,7 +44,7 @@ export function UAREmployeeModeV12({
       showTableControls={false}
       showTable={false}
       showHorizontalStepper={false}
-      showRadioCard
+      showRadioCard={false}
       showDeadlineCard={showDeadlineCard ?? true}
       showHeaderSummary={false}
       showHeaderDescription={showHeaderDescription ?? true}
@@ -56,9 +56,11 @@ export function UAREmployeeModeV12({
       hideTimelineColumn={hideTimelineColumn}
       hideInsightsColumn={hideInsightsColumn}
       showRadioTabs={showRadioTabs}
-      hideAppIncludedColumn={hideAppIncludedColumn}
+      hideAppIncludedColumn={hideAppIncludedColumn ?? true}
       hideUsersIncludedColumn={hideUsersIncludedColumn}
       showRiskScoreColumn={showRiskScoreColumn}
+      firstColumnHeader="Application"
+      enableExpandedRowDatatable={true}
     />
   );
 }

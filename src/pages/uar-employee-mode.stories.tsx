@@ -49,7 +49,6 @@ export const DashboardV12Story: Story = {
       showRadioTabs={false}
       hideAppIncludedColumn
       hideUsersIncludedColumn
-      showRiskScoreColumn
     />
   ),
 };
@@ -69,6 +68,7 @@ export const CertificationOverviewV12Story: Story = {
       deadlineCardPosition="header"
       headerBadgeLabel="Active"
       sidebarHasTabs
+      showRiskScoreColumn={true}
     />
   ),
 };
