@@ -154,9 +154,20 @@ const appIcons: Record<string, React.ComponentType<{ className?: string }>> = {
 const getAppIncludedCount = (index: number) => ((index * 137) % 999) + 1;
 const getUsersIncludedCount = (index: number) => ((index * 521) % 4991) + 10;
 const getDueInDays = (index: number) => {
+  // Ensure we have examples of At-Risk (0-3 days) by explicitly including them
   // Generate values from -10 (10 days overdue) to 90 (90 days remaining)
-  const value = ((index * 17) % 101) - 10;
-  return value;
+  // Use modulo to cycle through different ranges, ensuring 0-3 appear
+  const cycle = index % 20;
+  if (cycle < 4) {
+    // Explicitly return 0, 1, 2, 3 for At-Risk examples
+    return cycle;
+  }
+  // Generate other values: -10 to -1 (overdue) and 4 to 90 (on-track)
+  const value = ((index * 17) % 95);
+  if (value < 10) {
+    return -(value + 1); // -1 to -10 (overdue)
+  }
+  return value + 4; // 4 to 94 (on-track)
 };
 const getInsightsPercent = (index: number) => (index * 9) % 101;
 const getRiskLevel = (index: number) => {
@@ -184,11 +195,71 @@ const formatNumber = (num: number | string): string => {
   const numValue = typeof num === 'string' ? parseInt(num, 10) : num;
   return numValue.toLocaleString('en-US');
 };
+// Generate realistic IGA certification names with IT admin short codes
+const generateCertificationNames = (count: number): string[] => {
+  const regions = ['IN', 'US', 'UK', 'APAC', 'EMEA', 'LATAM', 'CA', 'AU', 'DE', 'FR'];
+  const teams = ['Product Team', 'Engineering Team', 'Operations Team', 'Finance Team', 'Sales Team', 'Marketing Team', 'HR Team', 'Legal Team', 'Security Team', 'Data Team'];
+  const teamsShort = ['prod_team', 'eng_team', 'ops_team', 'finance_team', 'sales_team', 'mktg_team', 'hr_team', 'legal_team', 'sec_team', 'data_team'];
+  const reviewFrequencies = ['Quarterly UAR', 'Annual UAR', 'Bi-annual UAR', 'Ad hoc UAR', 'Monthly UAR', 'Semi-annual UAR'];
+  const reviewTypes = ['UAR', 'QAR', 'AAR', 'CAR', 'SAR'];
+  const timePeriods = ['Q1 2026', 'Q2 2026', 'Q3 2026', 'Q4 2026', 'FY2026', 'H1 2026', 'H2 2026', '2026'];
+  
+  const names: string[] = [];
+  const usedCombinations = new Set<string>();
+  
+  for (let i = 0; i < count; i++) {
+    let name = '';
+    let attempts = 0;
+    
+    // Generate unique combinations with variety
+    while (attempts < 200) {
+      const region = regions[i % regions.length];
+      const useShortTeam = i % 3 !== 0; // Mix of short and full team names
+      const team = useShortTeam ? teamsShort[Math.floor(i / regions.length) % teamsShort.length] : teams[Math.floor(i / regions.length) % teams.length];
+      const useFrequency = i % 3 === 0; // Some use frequency-based naming
+      const reviewFrequency = reviewFrequencies[Math.floor(i / (regions.length * teams.length)) % reviewFrequencies.length];
+      const reviewType = reviewTypes[Math.floor(i / (regions.length * teams.length)) % reviewTypes.length];
+      const timePeriod = timePeriods[Math.floor(i / (regions.length * teams.length * reviewFrequencies.length)) % timePeriods.length];
+      
+      // Create different patterns for variety
+      const pattern = i % 6;
+      if (pattern === 0) {
+        name = useFrequency ? `${region}_${team} ${reviewFrequency} ${timePeriod}` : `${region}_${team} ${reviewType} ${timePeriod}`;
+      } else if (pattern === 1) {
+        name = useFrequency ? `${region} ${team} ${reviewFrequency}` : `${region} ${team} ${reviewType} ${timePeriod}`;
+      } else if (pattern === 2) {
+        name = useFrequency ? `${region}_${team} ${reviewFrequency}` : `${region}_${team} ${reviewType}`;
+      } else if (pattern === 3) {
+        name = useFrequency ? `${region} ${team} ${reviewFrequency} ${timePeriod}` : `${region} ${team} ${reviewType}`;
+      } else if (pattern === 4) {
+        name = useFrequency ? `${region}_${team} ${reviewFrequency}` : `${region}_${team} ${reviewType} ${timePeriod}`;
+      } else {
+        name = useFrequency ? `${region} ${team} ${reviewFrequency}` : `${region} ${team} ${reviewType} ${timePeriod}`;
+      }
+      
+      // Clean up any double spaces
+      name = name.replace(/\s+/g, ' ').trim();
+      
+      if (!usedCombinations.has(name)) {
+        usedCombinations.add(name);
+        break;
+      }
+      attempts++;
+    }
+    
+    names.push(name);
+  }
+  
+  return names;
+};
+
+const certificationNames = generateCertificationNames(50);
+
 const frozenTableRows = Array.from({ length: 50 }, (_, index) => {
   const baseName = appNames[index % appNames.length];
   return {
     id: `row-${index + 1}`,
-    col1: `UAR Access Review ${index + 1}`,
+    col1: certificationNames[index],
     appBaseName: baseName,
     col2: ownerNames[index % ownerNames.length],
     col3: `${formatCreatedOn(index)}  \u2192  ${formatCreatedOn(index + 9)}`,
@@ -1093,88 +1164,72 @@ export function UAR({
                             <TableHeader className="sticky top-0 z-20 bg-muted border-b [&_tr]:border-b">
                               <TableRow>
                                 <TableHead 
-                                  className={`py-2 text-xs w-[360px] cursor-pointer select-none transition-colors ${
-                                    sortColumn === 'col1' 
-                                      ? 'bg-primary/10 text-primary font-semibold border-b-2 border-primary' 
-                                      : 'bg-muted hover:bg-muted/80'
-                                  }`}
+                                  className="py-2 text-xs bg-muted w-[360px] cursor-pointer select-none transition-colors hover:bg-muted/80 group"
                                   onClick={() => handleSort('col1')}
                                 >
                                   <div className="flex items-center gap-2">
                                     <span>{firstColumnHeader ?? 'Certification'}</span>
                                     {sortColumn === 'col1' ? (
                                       sortDirection === 'asc' ? (
-                                        <ArrowUp className="h-4 w-4 text-primary font-bold" />
+                                        <ArrowUp className="h-3 w-3 text-primary" />
                                       ) : (
-                                        <ArrowDown className="h-4 w-4 text-primary font-bold" />
+                                        <ArrowDown className="h-3 w-3 text-primary" />
                                       )
                                     ) : (
-                                      <ArrowUpDown className="h-3 w-3 opacity-40" />
+                                      <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
                                     )}
                                   </div>
                                 </TableHead>
                                 <TableHead 
-                                  className={`py-2 text-xs cursor-pointer select-none transition-colors ${
-                                    sortColumn === 'col2' 
-                                      ? 'bg-primary/10 text-primary font-semibold border-b-2 border-primary' 
-                                      : 'bg-muted hover:bg-muted/80'
-                                  }`}
+                                  className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
                                   onClick={() => handleSort('col2')}
                                 >
                                   <div className="flex items-center gap-2">
                                     <span>Owner</span>
                                     {sortColumn === 'col2' ? (
                                       sortDirection === 'asc' ? (
-                                        <ArrowUp className="h-4 w-4 text-primary font-bold" />
+                                        <ArrowUp className="h-3 w-3 text-primary" />
                                       ) : (
-                                        <ArrowDown className="h-4 w-4 text-primary font-bold" />
+                                        <ArrowDown className="h-3 w-3 text-primary" />
                                       )
                                     ) : (
-                                      <ArrowUpDown className="h-3 w-3 opacity-40" />
+                                      <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
                                     )}
                                   </div>
                                 </TableHead>
                                 {showTimeRemainingColumn ? (
                                   <TableHead 
-                                    className={`py-2 text-xs cursor-pointer select-none transition-colors ${
-                                      sortColumn === 'col5Days' 
-                                        ? 'bg-primary/10 text-primary font-semibold border-b-2 border-primary' 
-                                        : 'bg-muted hover:bg-muted/80'
-                                    }`}
+                                    className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
                                     onClick={() => handleSort('col5Days')}
                                   >
                                     <div className="flex items-center gap-2">
                                       <span>Time remaining</span>
                                       {sortColumn === 'col5Days' ? (
                                         sortDirection === 'asc' ? (
-                                          <ArrowUp className="h-4 w-4 text-primary font-bold" />
+                                          <ArrowUp className="h-3 w-3 text-primary" />
                                         ) : (
-                                          <ArrowDown className="h-4 w-4 text-primary font-bold" />
+                                          <ArrowDown className="h-3 w-3 text-primary" />
                                         )
                                       ) : (
-                                        <ArrowUpDown className="h-3 w-3 opacity-40" />
+                                        <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
                                       )}
                                     </div>
                                   </TableHead>
                                 ) : null}
                                 <TableHead 
-                                  className={`py-2 text-xs cursor-pointer select-none transition-colors ${
-                                    sortColumn === 'progress' 
-                                      ? 'bg-primary/10 text-primary font-semibold border-b-2 border-primary' 
-                                      : 'bg-muted hover:bg-muted/80'
-                                  }`}
+                                  className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
                                   onClick={() => handleSort('progress')}
                                 >
                                   <div className="flex items-center gap-2">
                                     <span>Progress</span>
                                     {sortColumn === 'progress' ? (
                                       sortDirection === 'asc' ? (
-                                        <ArrowUp className="h-4 w-4 text-primary font-bold" />
+                                        <ArrowUp className="h-3 w-3 text-primary" />
                                       ) : (
-                                        <ArrowDown className="h-4 w-4 text-primary font-bold" />
+                                        <ArrowDown className="h-3 w-3 text-primary" />
                                       )
                                     ) : (
-                                      <ArrowUpDown className="h-3 w-3 opacity-40" />
+                                      <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
                                     )}
                                   </div>
                                 </TableHead>
