@@ -26,6 +26,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { InsightBadge, type Insight, ALL_INSIGHTS } from '@/components/ui/insight-badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -136,7 +137,58 @@ const horizontalSteps = [
   { label: 'Configure Applications' },
 ];
 
-const appNames = ['Jira', 'Figma', 'GitHub', 'Slack', 'Notion'];
+const appNames = [
+  'Salesforce',
+  'Slack',
+  'Microsoft 365',
+  'Google Workspace',
+  'Zoom',
+  'HubSpot',
+  'Dropbox',
+  'Shopify',
+  'Stripe',
+  'Notion',
+  'Asana',
+  'Trello',
+  'Monday.com',
+  'Zendesk',
+  'Intercom',
+  'Mailchimp',
+  'Canva',
+  'Figma',
+  'Adobe Creative Cloud',
+  'GitHub',
+  'GitLab',
+  'Atlassian',
+  'AWS',
+  'Google Cloud Platform',
+  'Microsoft Azure',
+  'Twilio',
+  'SendGrid',
+  'QuickBooks Online',
+  'Xero',
+  'FreshBooks',
+  'DocuSign',
+  'Calendly',
+  'Typeform',
+  'SurveyMonkey',
+  'Buffer',
+  'Hootsuite',
+  'Sprout Social',
+  'Grammarly',
+  'LastPass',
+  '1Password',
+  'Vimeo',
+  'Wistia',
+  'Loom',
+  'Miro',
+  'Airtable',
+  'Zapier',
+  'IFTTT',
+  'Segment',
+  'Mixpanel',
+  'Amplitude',
+];
 const ownerNames = [
   'Alex Morgan',
   'Priya Shah',
@@ -170,6 +222,28 @@ const getDueInDays = (index: number) => {
   return value + 4; // 4 to 94 (on-track)
 };
 const getInsightsPercent = (index: number) => (index * 9) % 101;
+
+// Helper function to generate sample insights data
+const generateInsights = (index: number, userCount: number): Insight[] => {
+  // Generate 3-15 insights per row (minimum 3, maximum 15)
+  // Use modulo to cycle through different counts: 3, 4, 5, ..., 15
+  const numInsights = Math.min(3 + (index % 13), 15);
+  const insights: Insight[] = [];
+  
+  for (let i = 0; i < numInsights; i++) {
+    const insightIndex = (index + i) % ALL_INSIGHTS.length;
+    const userCountForInsight = Math.floor(userCount / numInsights) + (i === 0 ? userCount % numInsights : 0);
+    
+    insights.push({
+      name: ALL_INSIGHTS[insightIndex].name,
+      description: ALL_INSIGHTS[insightIndex].description,
+      userCount: userCountForInsight,
+      recommendedAction: ALL_INSIGHTS[insightIndex].recommendedAction,
+    });
+  }
+  
+  return insights;
+};
 const getRiskLevel = (index: number) => {
   const roll = index % 3;
   if (roll === 0) return 'High';
@@ -267,7 +341,7 @@ const frozenTableRows = Array.from({ length: 50 }, (_, index) => {
     col5Date: formatCreatedOn(index + 9),
     col6: `${getAppIncludedCount(index)}`,
     col7: `${getUsersIncludedCount(index)}`,
-    col8: `${getInsightsPercent(index)}% of users`,
+    col8: `${getInsightsPercent(index)}% users`,
     riskLevel: getRiskLevel(index),
     riskScore: getRiskScore(index),
     col9: (() => {
@@ -1322,14 +1396,20 @@ export function UAR({
                                       <div className="flex items-center gap-2">
                                         <span className="text-sm">{row.col8}</span>
                                         <Separator orientation="vertical" className="h-4" />
-                                        <Badge variant="secondary" className="w-[100px] border-transparent text-xs font-semibold justify-center">
-                                          {(() => {
-                                            const match = row.col8.match(/(\d+)%/);
-                                            const percent = match ? parseInt(match[1]) : 0;
-                                            const records = Math.floor((percent / 100) * parseInt(row.col7.replace(/,/g, '')) || 0);
-                                            return `${records} records`;
-                                          })()}
-                                        </Badge>
+                                        {(() => {
+                                          const match = row.col8.match(/(\d+)%/);
+                                          const percent = match ? parseInt(match[1]) : 0;
+                                          const userCount = parseInt(row.col7.replace(/,/g, '')) || 0;
+                                          const records = Math.floor((percent / 100) * userCount);
+                                          const rowIndex = parseInt(row.id.replace('row-', '')) - 1;
+                                          const generatedInsights = generateInsights(rowIndex >= 0 ? rowIndex : 0, records);
+                                          return (
+                                            <InsightBadge
+                                              count={generatedInsights.length}
+                                              insights={generatedInsights}
+                                            />
+                                          );
+                                        })()}
                                       </div>
                                     </TableCell>
                                   ) : null}

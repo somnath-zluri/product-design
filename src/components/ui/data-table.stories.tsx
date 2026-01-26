@@ -13,6 +13,7 @@ import {
 import { Button } from './button';
 import { Checkbox } from './checkbox';
 import { Badge } from './badge';
+import { InsightBadge, ALL_INSIGHTS } from './insight-badge';
 import { SiJira, SiFigma, SiGithub, SiSlack, SiNotion } from 'react-icons/si';
 import { Pencil, ChevronDown, ChevronRight } from 'lucide-react';
 
@@ -385,7 +386,28 @@ function GroupedDataTable() {
                               </Badge>
                             </TableCell>
                             <TableCell className="px-4 py-2">
-                              {membership.records}
+                              {(() => {
+                                // Generate 3-15 insights (minimum 3, maximum 15)
+                                const membershipIndex = parseInt(membership.id) || 0;
+                                const numInsights = Math.min(3 + (membershipIndex % 13), 15);
+                                const generatedInsights = Array.from({ length: numInsights }, (_, i) => {
+                                  const insightIndex = (membershipIndex + i) % ALL_INSIGHTS.length;
+                                  const insight = ALL_INSIGHTS[insightIndex];
+                                  return {
+                                    name: insight.name,
+                                    description: insight.description,
+                                    userCount: Math.floor(membership.records / numInsights) + (i === 0 ? membership.records % numInsights : 0),
+                                    recommendedAction: insight.recommendedAction,
+                                  };
+                                });
+                                
+                                return (
+                                  <InsightBadge
+                                    count={generatedInsights.length}
+                                    insights={generatedInsights}
+                                  />
+                                );
+                              })()}
                             </TableCell>
                             <TableCell className="px-4 py-2">
                               <Button variant="outline" size="sm" className="w-fit">
