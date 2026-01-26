@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/breadcrumb';
 import { VerticalStepper, HorizontalStepper } from '@/components/ui/stepper';
 import { Button } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
@@ -38,6 +39,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import * as React from 'react';
+import type { ReactNode } from 'react';
 import { ChevronLeft, Search, ChevronRight, AlignLeft, AlignCenter, AlignRight, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { FaApple, FaWindows } from 'react-icons/fa';
 import { SiJira, SiFigma, SiGithub, SiSlack, SiNotion } from 'react-icons/si';
@@ -77,6 +79,30 @@ interface UARProps {
   sidebarHasTabs?: boolean;
   firstColumnHeader?: string;
   showTimeRemainingColumn?: boolean;
+  customTableColumns?: ColumnDef<any>[];
+  customTableData?: any[];
+  hideUsersTab?: boolean;
+  hideTabBadges?: boolean;
+  hideOwnerColumn?: boolean;
+  hideProgressColumn?: boolean;
+  customActionColumn?: (row: any) => ReactNode;
+  customFirstColumnCell?: (row: any) => ReactNode;
+  riskColumnHeader?: string;
+  hideRiskGauge?: boolean;
+  insightsColumnHeader?: string;
+  showInsightsBadgeOnly?: boolean;
+  freezeFirstColumn?: boolean;
+  firstColumnWidth?: string;
+  hideViewByFilter?: boolean;
+  hideSortByFilter?: boolean;
+  initialSortColumn?: string;
+  initialSortDirection?: 'asc' | 'desc';
+  customSortByUser?: boolean;
+  sampleUsersForSorting?: Array<{ firstName: string; lastName: string }>;
+  searchPlaceholder?: string;
+  showStatusColumn?: boolean;
+  customStatusValues?: Array<'Pending' | 'Certified' | 'Modified' | 'Revoked'>;
+  showReviewerLevelColumn?: boolean;
 }
 
 interface TableData {
@@ -359,6 +385,7 @@ const frozenTableRows = Array.from({ length: 50 }, (_, index) => {
     })(),
     progress: Math.min(100, Math.max(0, (index % 10) * 10 + (index % 3) * 5)),
     actionLabel: 'Review',
+    reviewerLevel: (index % 5) + 1, // Reviewer level from 1 to 5
   };
 })
   .sort((a, b) => a.col5Days - b.col5Days);
@@ -390,6 +417,30 @@ export function UAR({
   sidebarHasTabs = false,
   firstColumnHeader,
   showTimeRemainingColumn = false,
+  customTableColumns,
+  customTableData,
+  hideUsersTab = false,
+  hideTabBadges = false,
+  hideOwnerColumn = false,
+  hideProgressColumn = false,
+  customActionColumn,
+  customFirstColumnCell,
+  riskColumnHeader,
+  hideRiskGauge = false,
+  insightsColumnHeader,
+  showInsightsBadgeOnly = false,
+  freezeFirstColumn = false,
+  firstColumnWidth,
+  hideViewByFilter = false,
+  hideSortByFilter = false,
+  initialSortColumn,
+  initialSortDirection = 'asc',
+  customSortByUser = false,
+  sampleUsersForSorting,
+  searchPlaceholder,
+  showStatusColumn = false,
+  customStatusValues,
+  showReviewerLevelColumn = false,
 }: UARProps) {
   const deadlineCard = showDeadlineCard ? (
     <div className="relative flex flex-col items-start">
@@ -430,7 +481,7 @@ export function UAR({
     { value: 'applications', label: 'Applications', count: tabCounts[0] ?? 0, widthClass: 'w-[190px]' },
     { value: 'groups', label: 'Groups', count: tabCounts[1] ?? 0, widthClass: 'w-[130px]' },
     { value: 'users', label: 'Users', count: tabCounts[2] ?? 0, widthClass: 'w-[120px]' },
-  ];
+  ].filter((tab) => !(hideUsersTab && tab.value === 'users'));
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: 20,
@@ -441,8 +492,9 @@ export function UAR({
   const [currentHorizontalStep, setCurrentHorizontalStep] = React.useState(1);
   const [currentVerticalStep, setCurrentVerticalStep] = React.useState(1);
   const [dropdownAlign, setDropdownAlign] = React.useState<'start' | 'center' | 'end'>('center');
-  const [sortColumn, setSortColumn] = React.useState<string | null>('col5Days');
-  const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('asc');
+  const [sortColumn, setSortColumn] = React.useState<string | null>(initialSortColumn || 'col1');
+  const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>(initialSortDirection || 'asc');
+  const [statusFilter, setStatusFilter] = React.useState<'all' | 'pending' | 'reviewed'>('all');
 
   // Sort the data based on current sort column and direction
   const sortedTableRows = React.useMemo(() => {
@@ -452,24 +504,48 @@ export function UAR({
       let aValue: any = a[sortColumn as keyof typeof a];
       let bValue: any = b[sortColumn as keyof typeof b];
       
-      // Handle numeric values
-      if (sortColumn === 'col5Days' || sortColumn === 'progress' || sortColumn === 'riskScore') {
-        aValue = Number(aValue) || 0;
-        bValue = Number(bValue) || 0;
+      // Handle custom user sorting when customFirstColumnCell is used
+      if (customSortByUser && sortColumn === 'col1' && customFirstColumnCell && sampleUsersForSorting) {
+        // Extract row index from id to determine which user is displayed
+        const aIndex = parseInt(a.id.replace('row-', '')) - 1;
+        const bIndex = parseInt(b.id.replace('row-', '')) - 1;
+        // Get the user for each row (use modulo to cycle through users)
+        const aUserIndex = aIndex % sampleUsersForSorting.length;
+        const bUserIndex = bIndex % sampleUsersForSorting.length;
+        const aUser = sampleUsersForSorting[aUserIndex] || sampleUsersForSorting[0];
+        const bUser = sampleUsersForSorting[bUserIndex] || sampleUsersForSorting[0];
+        // Sort by full name (lastName firstName for proper alphabetical sorting)
+        const aFullName = `${aUser.lastName} ${aUser.firstName}`.toLowerCase();
+        const bFullName = `${bUser.lastName} ${bUser.firstName}`.toLowerCase();
+        // Compare names alphabetically
+        if (aFullName < bFullName) return sortDirection === 'asc' ? -1 : 1;
+        if (aFullName > bFullName) return sortDirection === 'asc' ? 1 : -1;
+        // If names are equal, maintain original order by row index
+        return aIndex - bIndex;
       }
-      // Handle string values
-      else if (typeof aValue === 'string' && typeof bValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
+      // Skip the default comparison if we already handled custom user sorting
+      if (!(customSortByUser && sortColumn === 'col1' && customFirstColumnCell && sampleUsersForSorting)) {
+        // Handle numeric values
+        if (sortColumn === 'col5Days' || sortColumn === 'progress' || sortColumn === 'riskScore') {
+          aValue = Number(aValue) || 0;
+          bValue = Number(bValue) || 0;
+        }
+        // Handle string values
+        else if (typeof aValue === 'string' && typeof bValue === 'string') {
+          aValue = aValue.toLowerCase();
+          bValue = bValue.toLowerCase();
+        }
+        
+        if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
       }
       
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
+      return 0; // Fallback (shouldn't reach here for custom user sorting)
     });
     
     return sorted;
-  }, [sortColumn, sortDirection]);
+  }, [sortColumn, sortDirection, customSortByUser, customFirstColumnCell, sampleUsersForSorting]);
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -480,6 +556,38 @@ export function UAR({
       setSortColumn(column);
       setSortDirection('asc');
     }
+  };
+
+  const handleSortByChange = (value: string) => {
+    // Map select values to sortColumn and sortDirection
+    const sortMap: Record<string, { column: string; direction: 'asc' | 'desc' }> = {
+      'due-asc': { column: 'col5Days', direction: 'asc' },
+      'due-desc': { column: 'col5Days', direction: 'desc' },
+      'cert-asc': { column: 'col1', direction: 'asc' },
+      'cert-desc': { column: 'col1', direction: 'desc' },
+      'user-asc': { column: 'col1', direction: 'asc' },
+      'user-desc': { column: 'col1', direction: 'desc' },
+    };
+    
+    const sortConfig = sortMap[value];
+    if (sortConfig) {
+      setSortColumn(sortConfig.column);
+      setSortDirection(sortConfig.direction);
+    }
+  };
+
+  // Get current sort by value from sortColumn and sortDirection
+  const getCurrentSortByValue = () => {
+    if (sortColumn === 'col5Days') {
+      return sortDirection === 'asc' ? 'due-asc' : 'due-desc';
+    } else if (sortColumn === 'col1') {
+      // Default to user sorting if customSortByUser is enabled, otherwise application
+      if (customSortByUser) {
+        return sortDirection === 'asc' ? 'user-asc' : 'user-desc';
+      }
+      return sortDirection === 'asc' ? 'cert-asc' : 'cert-desc';
+    }
+    return 'user-asc'; // Default to user-asc
   };
 
   const frozenPageCount = Math.ceil(sortedTableRows.length / frozenPageSize);
@@ -568,9 +676,12 @@ export function UAR({
     );
   };
 
+  const finalColumns = customTableColumns || columns;
+  const finalTableData = customTableData || tableData;
+
   const table = useReactTable({
-    data: tableData,
-    columns,
+    data: finalTableData,
+    columns: finalColumns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     onPaginationChange: setPagination,
@@ -813,7 +924,7 @@ export function UAR({
                                     <div className="w-full relative">
                                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                       <Input
-                                        placeholder="Search users"
+                                        placeholder={searchPlaceholder || "Search users"}
                                         className="pl-9 pr-3 w-full"
                                         onKeyDown={(e) => {
                                           if (e.key === 'Enter') {
@@ -902,7 +1013,7 @@ export function UAR({
                                     <div className="w-full relative">
                                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                       <Input
-                                        placeholder="Search users"
+                                        placeholder={searchPlaceholder || "Search users"}
                                         className="pl-9 pr-3 w-full"
                                         onKeyDown={(e) => {
                                           if (e.key === 'Enter') {
@@ -1146,9 +1257,11 @@ export function UAR({
                                 className={`rounded-none border-b-2 border-transparent px-4 py-2 -mb-px data-[state=active]:border-foreground data-[state=active]:shadow-none ${tab.widthClass}`}
                               >
                                 <span>{tab.label}</span>
-                                <Badge variant="secondary" className="ml-2 min-w-[28px] justify-center">
-                                  {tab.count}
-                                </Badge>
+                                {!hideTabBadges && (
+                                  <Badge variant="secondary" className="ml-2 min-w-[28px] justify-center">
+                                    {tab.count}
+                                  </Badge>
+                                )}
                               </TabsTrigger>
                             ))}
                           </TabsList>
@@ -1157,48 +1270,77 @@ export function UAR({
                         <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
                           <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-background px-4 py-3">
                             <div className="flex flex-wrap items-center gap-2">
-                              <div className="relative">
-                                <label
-                                  className="absolute -top-2 left-2 bg-background px-1 text-[10px] text-muted-foreground"
-                                  htmlFor="view-by-select"
+                              <ButtonGroup>
+                                <Button
+                                  variant={statusFilter === 'all' ? 'default' : 'outline'}
+                                  size="sm"
+                                  onClick={() => setStatusFilter('all')}
                                 >
-                                  View by
-                                </label>
-                                <Select defaultValue="all">
-                                  <SelectTrigger id="view-by-select" className="h-9 w-[160px]">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="all">All</SelectItem>
-                                    <SelectItem value="applications">Applications</SelectItem>
-                                    <SelectItem value="groups">Groups</SelectItem>
-                                    <SelectItem value="users">Users</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="relative">
-                                <label
-                                  className="absolute -top-2 left-2 bg-background px-1 text-[10px] text-muted-foreground"
-                                  htmlFor="sort-by-select"
+                                  All
+                                </Button>
+                                <Button
+                                  variant={statusFilter === 'pending' ? 'default' : 'outline'}
+                                  size="sm"
+                                  onClick={() => setStatusFilter('pending')}
                                 >
-                                  Sort by
-                                </label>
-                                <Select defaultValue="due-asc">
-                                  <SelectTrigger id="sort-by-select" className="h-9 w-[160px]">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="due-asc">Due: Soonest</SelectItem>
-                                    <SelectItem value="due-desc">Due: Latest</SelectItem>
-                                    <SelectItem value="cert-asc">Application: A-Z</SelectItem>
-                                    <SelectItem value="cert-desc">Application: Z-A</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
+                                  Pending
+                                </Button>
+                                <Button
+                                  variant={statusFilter === 'reviewed' ? 'default' : 'outline'}
+                                  size="sm"
+                                  onClick={() => setStatusFilter('reviewed')}
+                                >
+                                  Reviewed
+                                </Button>
+                              </ButtonGroup>
+                              {!hideViewByFilter && (
+                                <div className="relative">
+                                  <label
+                                    className="absolute -top-2 left-2 bg-background px-1 text-[10px] text-muted-foreground"
+                                    htmlFor="view-by-select"
+                                  >
+                                    View by
+                                  </label>
+                                  <Select defaultValue="all">
+                                    <SelectTrigger id="view-by-select" className="h-9 w-[160px]">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="all">All</SelectItem>
+                                      <SelectItem value="applications">Applications</SelectItem>
+                                      <SelectItem value="groups">Groups</SelectItem>
+                                      <SelectItem value="users">Users</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+                              {!hideSortByFilter && (
+                                <div className="relative">
+                                  <label
+                                    className="absolute -top-2 left-2 bg-background px-1 text-[10px] text-muted-foreground"
+                                    htmlFor="sort-by-select"
+                                  >
+                                    Sort by
+                                  </label>
+                                  <Select value={getCurrentSortByValue()} onValueChange={handleSortByChange}>
+                                    <SelectTrigger id="sort-by-select" className="h-9 w-[160px]">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="user-asc">User: A-Z</SelectItem>
+                                      <SelectItem value="user-desc">User: Z-A</SelectItem>
+                                      <SelectItem value="due-asc">Due: Soonest</SelectItem>
+                                      <SelectItem value="due-desc">Due: Latest</SelectItem>
+                                      <SelectItem value="cert-asc">Application: A-Z</SelectItem>
+                                      <SelectItem value="cert-desc">Application: Z-A</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
                               <div className="relative">
                                 <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                 <Input
-                                  placeholder="Search apps"
+                                  placeholder={searchPlaceholder || "Search apps"}
                                   className="h-9 w-[220px] pl-8"
                                 />
                               </div>
@@ -1217,8 +1359,10 @@ export function UAR({
                                   size="sm"
                                   onClick={() => setFrozenPageIndex((prev) => Math.max(0, prev - 1))}
                                   disabled={frozenPageIndex === 0}
+                                  className="h-9 w-9 p-0"
                                 >
-                                  Previous
+                                  <ChevronLeft className="h-4 w-4" />
+                                  <span className="sr-only">Previous</span>
                                 </Button>
                                 <Button
                                   variant="ghost"
@@ -1227,8 +1371,10 @@ export function UAR({
                                     setFrozenPageIndex((prev) => Math.min(frozenPageCount - 1, prev + 1))
                                   }
                                   disabled={frozenPageIndex >= frozenPageCount - 1}
+                                  className="h-9 w-9 p-0"
                                 >
-                                  Next
+                                  <ChevronRight className="h-4 w-4" />
+                                  <span className="sr-only">Next</span>
                                 </Button>
                               </div>
                             </div>
@@ -1238,8 +1384,9 @@ export function UAR({
                             <TableHeader className="sticky top-0 z-20 bg-muted border-b [&_tr]:border-b">
                               <TableRow>
                                 <TableHead 
-                                  className="py-2 text-xs bg-muted w-[360px] cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                  className={`py-2 text-xs bg-muted ${firstColumnWidth ? '' : 'w-[360px]'} cursor-pointer select-none transition-colors hover:bg-muted/80 group ${freezeFirstColumn ? 'sticky left-0 z-20' : ''}`}
                                   onClick={() => handleSort('col1')}
+                                  style={firstColumnWidth ? { width: `${firstColumnWidth}px` } : undefined}
                                 >
                                   <div className="flex items-center gap-2">
                                     <span>{firstColumnHeader ?? 'Certification'}</span>
@@ -1254,23 +1401,25 @@ export function UAR({
                                     )}
                                   </div>
                                 </TableHead>
-                                <TableHead 
-                                  className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
-                                  onClick={() => handleSort('col2')}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span>Owner</span>
-                                    {sortColumn === 'col2' ? (
-                                      sortDirection === 'asc' ? (
-                                        <ArrowUp className="h-3 w-3 text-primary" />
+                                {!hideOwnerColumn ? (
+                                  <TableHead 
+                                    className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                    onClick={() => handleSort('col2')}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span>Owner</span>
+                                      {sortColumn === 'col2' ? (
+                                        sortDirection === 'asc' ? (
+                                          <ArrowUp className="h-3 w-3 text-primary" />
+                                        ) : (
+                                          <ArrowDown className="h-3 w-3 text-primary" />
+                                        )
                                       ) : (
-                                        <ArrowDown className="h-3 w-3 text-primary" />
-                                      )
-                                    ) : (
-                                      <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
-                                    )}
-                                  </div>
-                                </TableHead>
+                                        <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                      )}
+                                    </div>
+                                  </TableHead>
+                                ) : null}
                                 {showTimeRemainingColumn ? (
                                   <TableHead 
                                     className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
@@ -1290,31 +1439,39 @@ export function UAR({
                                     </div>
                                   </TableHead>
                                 ) : null}
-                                <TableHead 
-                                  className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
-                                  onClick={() => handleSort('progress')}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span>Progress</span>
-                                    {sortColumn === 'progress' ? (
-                                      sortDirection === 'asc' ? (
-                                        <ArrowUp className="h-3 w-3 text-primary" />
+                                {!hideProgressColumn ? (
+                                  <TableHead 
+                                    className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                    onClick={() => handleSort('progress')}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span>Progress</span>
+                                      {sortColumn === 'progress' ? (
+                                        sortDirection === 'asc' ? (
+                                          <ArrowUp className="h-3 w-3 text-primary" />
+                                        ) : (
+                                          <ArrowDown className="h-3 w-3 text-primary" />
+                                        )
                                       ) : (
-                                        <ArrowDown className="h-3 w-3 text-primary" />
-                                      )
-                                    ) : (
-                                      <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
-                                    )}
-                                  </div>
-                                </TableHead>
+                                        <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                      )}
+                                    </div>
+                                  </TableHead>
+                                ) : null}
                                 {showRiskScoreColumn ? (
-                                  <TableHead className="py-2 text-xs bg-muted">App Risk Sensitivity</TableHead>
+                                  <TableHead className="py-2 text-xs bg-muted">{riskColumnHeader ?? 'App Risk Sensitivity'}</TableHead>
+                                ) : null}
+                                {showStatusColumn ? (
+                                  <TableHead className="py-2 text-xs bg-muted">Status</TableHead>
+                                ) : null}
+                                {showReviewerLevelColumn ? (
+                                  <TableHead className="py-2 text-xs bg-muted">Reviewer level</TableHead>
                                 ) : null}
                                 {!hideUsersIncludedColumn ? (
                                   <TableHead className="py-2 text-xs bg-muted">Records</TableHead>
                                 ) : null}
                                 {!hideInsightsColumn ? (
-                                  <TableHead className="py-2 text-xs bg-muted">Bulk action eligible</TableHead>
+                                  <TableHead className="py-2 text-xs bg-muted">{insightsColumnHeader ?? 'Bulk action eligible'}</TableHead>
                                 ) : null}
                                 <TableHead className="py-2 text-xs bg-muted">Action</TableHead>
                               </TableRow>
@@ -1322,23 +1479,32 @@ export function UAR({
                             <TableBody>
                               {frozenPageRows.map((row) => (
                                 <TableRow key={row.id}>
-                                  <TableCell className="py-2 text-sm w-[360px]">
-                                    <span className="truncate max-w-[340px] block" title={firstColumnHeader === 'Application' ? row.appBaseName : row.col1}>
-                                      {firstColumnHeader === 'Application' ? row.appBaseName : row.col1}
-                                    </span>
-                                  </TableCell>
-                                  <TableCell className="py-2 text-sm">
-                                    <div className="flex items-center gap-2">
-                                      <Avatar className="h-6 w-6">
-                                        <AvatarFallback className="text-[10px]">
-                                          {getInitials(row.col2)}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <span className="border-b border-dashed border-current pb-[1px]">
-                                        {row.col2}
+                                  <TableCell 
+                                    className={`py-2 text-sm ${firstColumnWidth ? '' : 'w-[360px]'} ${freezeFirstColumn ? 'sticky left-0 z-10 bg-background' : ''}`}
+                                    style={firstColumnWidth ? { width: `${firstColumnWidth}px` } : undefined}
+                                  >
+                                    {customFirstColumnCell ? (
+                                      customFirstColumnCell(row)
+                                    ) : (
+                                      <span className="truncate max-w-[340px] block" title={firstColumnHeader === 'Application' ? row.appBaseName : row.col1}>
+                                        {firstColumnHeader === 'Application' ? row.appBaseName : row.col1}
                                       </span>
-                                    </div>
+                                    )}
                                   </TableCell>
+                                  {!hideOwnerColumn ? (
+                                    <TableCell className="py-2 text-sm">
+                                      <div className="flex items-center gap-2">
+                                        <Avatar className="h-6 w-6">
+                                          <AvatarFallback className="text-[10px]">
+                                            {getInitials(row.col2)}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <span className="border-b border-dashed border-current pb-[1px]">
+                                          {row.col2}
+                                        </span>
+                                      </div>
+                                    </TableCell>
+                                  ) : null}
                                   {showTimeRemainingColumn ? (
                                     <TableCell className="py-2 text-sm">
                                       <div className="flex items-center gap-2">
@@ -1366,23 +1532,86 @@ export function UAR({
                                       </div>
                                     </TableCell>
                                   ) : null}
-                                  <TableCell className="py-2 text-sm">
-                                    <div className="flex items-center gap-2 w-[120px]">
-                                      <div className="relative h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
-                                        <div
-                                          className="h-full transition-all rounded-full"
-                                          style={{
-                                            width: `${row.progress}%`,
-                                            backgroundColor: 'hsl(142, 71%, 45%)',
-                                          }}
-                                        />
+                                  {!hideProgressColumn ? (
+                                    <TableCell className="py-2 text-sm">
+                                      <div className="flex items-center gap-2 w-[120px]">
+                                        <div className="relative h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
+                                          <div
+                                            className="h-full transition-all rounded-full"
+                                            style={{
+                                              width: `${row.progress}%`,
+                                              backgroundColor: 'hsl(142, 71%, 45%)',
+                                            }}
+                                          />
+                                        </div>
+                                        <span className="text-xs whitespace-nowrap">{row.progress}%</span>
                                       </div>
-                                      <span className="text-xs whitespace-nowrap">{row.progress}%</span>
-                                    </div>
-                                  </TableCell>
+                                    </TableCell>
+                                  ) : null}
                                   {showRiskScoreColumn ? (
                                     <TableCell className="py-2 text-sm">
-                                      {renderRiskGauge(row.riskLevel as 'High' | 'Medium' | 'Low', row.riskScore)}
+                                      {hideRiskGauge ? (
+                                        <span className="text-sm">{row.riskLevel}</span>
+                                      ) : (
+                                        renderRiskGauge(row.riskLevel as 'High' | 'Medium' | 'Low', row.riskScore)
+                                      )}
+                                    </TableCell>
+                                  ) : null}
+                                  {showStatusColumn ? (
+                                    <TableCell className="py-2 text-sm">
+                                      {(() => {
+                                        // Use custom status values if provided, otherwise use default col9 values
+                                        let status: string;
+                                        let statusClass: string;
+                                        
+                                        if (customStatusValues && customStatusValues.length > 0) {
+                                          const rowIndex = parseInt(row.id.replace('row-', '')) - 1;
+                                          const statusIndex = rowIndex % customStatusValues.length;
+                                          status = customStatusValues[statusIndex];
+                                          
+                                          // Color coding for custom statuses
+                                          if (status === 'Pending') {
+                                            statusClass = 'bg-yellow-100 text-yellow-700';
+                                          } else if (status === 'Certified') {
+                                            statusClass = 'bg-green-100 text-green-700';
+                                          } else if (status === 'Modified') {
+                                            statusClass = 'bg-blue-100 text-blue-700';
+                                          } else { // Revoked
+                                            statusClass = 'bg-red-100 text-red-700';
+                                          }
+                                        } else {
+                                          // Default status values (Overdue, At-risk, On-track)
+                                          status = row.col9 === 'Overdue'
+                                            ? 'Overdue'
+                                            : row.col9 === 'At-risk'
+                                            ? 'At-Risk'
+                                            : 'On-Track';
+                                          statusClass = row.col9 === 'Overdue'
+                                            ? 'bg-red-100 text-red-700'
+                                            : row.col9 === 'At-risk'
+                                            ? 'bg-orange-100 text-orange-700'
+                                            : 'bg-green-100 text-green-700';
+                                        }
+                                        
+                                        return (
+                                          <Badge
+                                            variant="secondary"
+                                            className={`inline-block max-w-[120px] min-w-0 border-transparent text-xs font-semibold overflow-hidden text-ellipsis whitespace-nowrap [&>*]:truncate ${statusClass}`}
+                                          >
+                                            {status}
+                                          </Badge>
+                                        );
+                                      })()}
+                                    </TableCell>
+                                  ) : null}
+                                  {showReviewerLevelColumn ? (
+                                    <TableCell className="py-2 text-sm">
+                                      <Badge
+                                        variant="secondary"
+                                        className="inline-block border-transparent text-xs font-semibold bg-blue-100 text-blue-700"
+                                      >
+                                        Level {row.reviewerLevel}
+                                      </Badge>
                                     </TableCell>
                                   ) : null}
                                   {!hideAppIncludedColumn ? (
@@ -1393,10 +1622,8 @@ export function UAR({
                                   ) : null}
                                   {!hideInsightsColumn ? (
                                     <TableCell className="py-2 text-sm">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-sm">{row.col8}</span>
-                                        <Separator orientation="vertical" className="h-4" />
-                                        {(() => {
+                                      {showInsightsBadgeOnly ? (
+                                        (() => {
                                           const match = row.col8.match(/(\d+)%/);
                                           const percent = match ? parseInt(match[1]) : 0;
                                           const userCount = parseInt(row.col7.replace(/,/g, '')) || 0;
@@ -1409,14 +1636,37 @@ export function UAR({
                                               insights={generatedInsights}
                                             />
                                           );
-                                        })()}
-                                      </div>
+                                        })()
+                                      ) : (
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-sm">{row.col8}</span>
+                                          <Separator orientation="vertical" className="h-4" />
+                                          {(() => {
+                                            const match = row.col8.match(/(\d+)%/);
+                                            const percent = match ? parseInt(match[1]) : 0;
+                                            const userCount = parseInt(row.col7.replace(/,/g, '')) || 0;
+                                            const records = Math.floor((percent / 100) * userCount);
+                                            const rowIndex = parseInt(row.id.replace('row-', '')) - 1;
+                                            const generatedInsights = generateInsights(rowIndex >= 0 ? rowIndex : 0, records);
+                                            return (
+                                              <InsightBadge
+                                                count={generatedInsights.length}
+                                                insights={generatedInsights}
+                                              />
+                                            );
+                                          })()}
+                                        </div>
+                                      )}
                                     </TableCell>
                                   ) : null}
                                   <TableCell className="py-2">
-                                    <Button size="sm" className="h-7 text-xs">
-                                      {row.actionLabel}
-                                    </Button>
+                                    {customActionColumn ? (
+                                      customActionColumn(row)
+                                    ) : (
+                                      <Button size="sm" className="h-7 text-xs">
+                                        {row.actionLabel}
+                                      </Button>
+                                    )}
                                   </TableCell>
                                 </TableRow>
                               ))}
@@ -1433,8 +1683,10 @@ export function UAR({
                                 size="sm"
                                 onClick={() => setFrozenPageIndex((prev) => Math.max(0, prev - 1))}
                                 disabled={frozenPageIndex === 0}
+                                className="h-9 w-9 p-0"
                               >
-                                Previous
+                                <ChevronLeft className="h-4 w-4" />
+                                <span className="sr-only">Previous</span>
                               </Button>
                               <Button
                                 variant="ghost"
@@ -1443,8 +1695,10 @@ export function UAR({
                                   setFrozenPageIndex((prev) => Math.min(frozenPageCount - 1, prev + 1))
                                 }
                                 disabled={frozenPageIndex >= frozenPageCount - 1}
+                                className="h-9 w-9 p-0"
                               >
-                                Next
+                                <ChevronRight className="h-4 w-4" />
+                                <span className="sr-only">Next</span>
                               </Button>
                             </div>
                           </div>
@@ -1454,13 +1708,19 @@ export function UAR({
                     {/* DataTable */}
                     {showTable ? (
                       <div className="flex-1 overflow-auto px-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
-                        <Table>
+                        <Table className="min-w-full">
                           <TableHeader>
-                            <TableRow>
-                              <TableHead>User</TableHead>
-                              <TableHead>Email ID</TableHead>
-                              <TableHead>Status</TableHead>
-                            </TableRow>
+                            {table.getHeaderGroups().map((headerGroup) => (
+                              <TableRow key={headerGroup.id}>
+                                {headerGroup.headers.map((header) => (
+                                  <TableHead key={header.id}>
+                                    {header.isPlaceholder
+                                      ? null
+                                      : flexRender(header.column.columnDef.header, header.getContext())}
+                                  </TableHead>
+                                ))}
+                              </TableRow>
+                            ))}
                           </TableHeader>
                           <TableBody>
                             {table.getRowModel().rows?.length ? (
@@ -1475,7 +1735,7 @@ export function UAR({
                               ))
                             ) : (
                               <TableRow>
-                                <TableCell colSpan={columns.length} className="h-24 text-center">
+                                <TableCell colSpan={finalColumns.length} className="h-24 text-center">
                                   No results.
                                 </TableCell>
                               </TableRow>

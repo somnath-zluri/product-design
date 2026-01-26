@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { UAR } from './UAR';
 
 interface UAREmployeeModeV12Props {
@@ -15,6 +16,30 @@ interface UAREmployeeModeV12Props {
   hideUsersIncludedColumn?: boolean;
   showRiskScoreColumn?: boolean;
   sidebarHasTabs?: boolean;
+  showLeftPanel?: boolean;
+  firstColumnHeader?: string;
+  hideUsersTab?: boolean;
+  hideTabBadges?: boolean;
+  hideOwnerColumn?: boolean;
+  hideProgressColumn?: boolean;
+  customActionColumn?: (row: any) => ReactNode;
+  customFirstColumnCell?: (row: any) => ReactNode;
+  riskColumnHeader?: string;
+  hideRiskGauge?: boolean;
+  insightsColumnHeader?: string;
+  showInsightsBadgeOnly?: boolean;
+  freezeFirstColumn?: boolean;
+  firstColumnWidth?: number;
+  hideViewByFilter?: boolean;
+  hideSortByFilter?: boolean;
+  initialSortColumn?: string;
+  initialSortDirection?: 'asc' | 'desc';
+  customSortByUser?: boolean;
+  sampleUsersForSorting?: Array<{ firstName: string; lastName: string }>;
+  searchPlaceholder?: string;
+  showStatusColumn?: boolean;
+  customStatusValues?: Array<'Pending' | 'Certified' | 'Modified' | 'Revoked'>;
+  showReviewerLevelColumn?: boolean;
 }
 
 export function UAREmployeeModeV12({
@@ -32,6 +57,30 @@ export function UAREmployeeModeV12({
   hideUsersIncludedColumn,
   showRiskScoreColumn,
   sidebarHasTabs,
+  showLeftPanel = true,
+  firstColumnHeader,
+  hideUsersTab,
+  hideTabBadges,
+  hideOwnerColumn,
+  hideProgressColumn,
+  customActionColumn,
+  customFirstColumnCell,
+  riskColumnHeader,
+  hideRiskGauge,
+  insightsColumnHeader,
+  showInsightsBadgeOnly,
+  freezeFirstColumn,
+  firstColumnWidth,
+  hideViewByFilter,
+  hideSortByFilter,
+  initialSortColumn,
+  initialSortDirection,
+  customSortByUser,
+  sampleUsersForSorting,
+  searchPlaceholder,
+  showStatusColumn,
+  customStatusValues,
+  showReviewerLevelColumn,
 }: UAREmployeeModeV12Props) {
   return (
     <UAR
@@ -40,7 +89,7 @@ export function UAREmployeeModeV12({
       showVerticalStepper={false}
       showBreadcrumb={false}
       titleOverride={titleOverride ?? "Quaterly Access Review (Q1 FY'26)"}
-      showLeftPanel
+      showLeftPanel={showLeftPanel}
       showTableControls={false}
       showTable={false}
       showHorizontalStepper={false}
@@ -59,8 +108,30 @@ export function UAREmployeeModeV12({
       hideAppIncludedColumn={hideAppIncludedColumn ?? true}
       hideUsersIncludedColumn={hideUsersIncludedColumn}
       showRiskScoreColumn={showRiskScoreColumn}
-      firstColumnHeader="Application"
+      firstColumnHeader={firstColumnHeader ?? "Application"}
       enableExpandedRowDatatable={true}
+      hideUsersTab={hideUsersTab}
+      hideTabBadges={hideTabBadges}
+      hideOwnerColumn={hideOwnerColumn}
+      hideProgressColumn={hideProgressColumn}
+      customActionColumn={customActionColumn}
+      customFirstColumnCell={customFirstColumnCell}
+      riskColumnHeader={riskColumnHeader}
+      hideRiskGauge={hideRiskGauge}
+      insightsColumnHeader={insightsColumnHeader}
+      showInsightsBadgeOnly={showInsightsBadgeOnly}
+      freezeFirstColumn={freezeFirstColumn}
+      firstColumnWidth={firstColumnWidth}
+      hideViewByFilter={hideViewByFilter}
+      hideSortByFilter={hideSortByFilter}
+      initialSortColumn={initialSortColumn}
+      initialSortDirection={initialSortDirection}
+      customSortByUser={customSortByUser}
+      sampleUsersForSorting={sampleUsersForSorting}
+      searchPlaceholder={searchPlaceholder}
+      showStatusColumn={showStatusColumn}
+      customStatusValues={customStatusValues}
+      showReviewerLevelColumn={showReviewerLevelColumn}
     />
   );
 }

@@ -14,6 +14,8 @@ interface UAREmployeeModeProps {
   hideAppIncludedColumn?: boolean;
   hideUsersIncludedColumn?: boolean;
   showRiskScoreColumn?: boolean;
+  hideViewByFilter?: boolean;
+  hideSortByFilter?: boolean;
 }
 
 export function UAREmployeeMode({
@@ -30,6 +32,8 @@ export function UAREmployeeMode({
   hideAppIncludedColumn,
   hideUsersIncludedColumn,
   showRiskScoreColumn,
+  hideViewByFilter,
+  hideSortByFilter,
 }: UAREmployeeModeProps) {
   return (
     <UAR
@@ -56,6 +60,8 @@ export function UAREmployeeMode({
       hideUsersIncludedColumn={hideUsersIncludedColumn}
       showRiskScoreColumn={showRiskScoreColumn}
       showTimeRemainingColumn={true}
+      hideViewByFilter={hideViewByFilter}
+      hideSortByFilter={hideSortByFilter}
     />
   );
 }
