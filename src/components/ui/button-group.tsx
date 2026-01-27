@@ -28,7 +28,7 @@ const ButtonGroup = React.forwardRef<HTMLDivElement, ButtonGroupProps>(
                   ? index === 0
                     ? 'rounded-r-none'
                     : index === React.Children.count(children) - 1
-                      ? 'rounded-l-none'
+                      ? 'rounded-l-none rounded-r-md'
                       : 'rounded-none'
                   : index === 0
                     ? 'rounded-b-none'

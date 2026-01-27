@@ -30,6 +30,7 @@ export interface Insight {
   description: string; // Tooltip content explaining what the insight does
   userCount: number; // Number of users this insight applies to
   recommendedAction: 'Certify' | 'Modify' | 'Revoke';
+  userSpecificDescription?: string; // User-specific description in context of the user
 }
 
 /**
@@ -128,9 +129,13 @@ export interface InsightBadgeProps
   extends React.HTMLAttributes<HTMLDivElement> {
   count: number;
   insights?: Insight[];
+  hideRecommendedAction?: boolean;
+  userName?: string;
+  showDescriptionColumn?: boolean;
+  filledSparkleIcon?: boolean;
 }
 
-export function InsightBadge({ count, insights = [], className, ...props }: InsightBadgeProps) {
+export function InsightBadge({ count, insights = [], className, hideRecommendedAction = false, userName, showDescriptionColumn = false, filledSparkleIcon = false, ...props }: InsightBadgeProps) {
   // Use actual insights count if available, otherwise use the provided count
   const displayCount = insights && insights.length > 0 ? insights.length : count;
   
@@ -138,39 +143,60 @@ export function InsightBadge({ count, insights = [], className, ...props }: Insi
     <Badge
       variant="secondary"
       className={cn(
-        'w-[100px] border-transparent text-xs font-semibold justify-center gap-1.5 cursor-pointer',
+        'w-[64px] border-transparent text-xs font-semibold justify-center gap-1.5 cursor-pointer bg-purple-100 text-purple-700 hover:bg-purple-200',
         className
       )}
       {...props}
     >
-      <Sparkles className="h-3.5 w-3.5" />
+      <Sparkles className={cn("h-3.5 w-3.5", filledSparkleIcon && "fill-current")} />
       {displayCount}
     </Badge>
   );
 
-  // If no insights provided, just show the badge without popover
+  const tooltipContent = userName 
+    ? `${displayCount} insights available on ${userName}`
+    : `${displayCount} insights available on the user mentioned in the row`;
+
+  // If no insights provided, just show the badge with tooltip
   if (!insights || insights.length === 0) {
-    return badgeContent;
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {badgeContent}
+          </TooltipTrigger>
+          <TooltipContent className="bg-white text-gray-900 border-gray-200">
+            {tooltipContent}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   }
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex border-0 bg-transparent p-0 cursor-pointer"
-        >
-          {badgeContent}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[600px] p-0" align="start">
+    <TooltipProvider>
+      <Tooltip>
+        <Popover>
+          <PopoverTrigger asChild>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex border-0 bg-transparent p-0 cursor-pointer"
+              >
+                {badgeContent}
+              </button>
+            </TooltipTrigger>
+          </PopoverTrigger>
+          <PopoverContent className="w-[600px] p-0" align="start">
         <div className="max-h-[400px] overflow-y-auto">
           <Table>
             <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
                 <TableHead className="px-4 py-3">Insight</TableHead>
-                <TableHead className="px-4 py-3">Users</TableHead>
-                <TableHead className="px-4 py-3">Recommended Action</TableHead>
+                <TableHead className="px-4 py-3">{showDescriptionColumn ? 'Description' : 'Users'}</TableHead>
+                {!hideRecommendedAction && (
+                  <TableHead className="px-4 py-3">Recommended Action</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -189,29 +215,40 @@ export function InsightBadge({ count, insights = [], className, ...props }: Insi
                     </TooltipProvider>
                   </TableCell>
                   <TableCell className="px-4 py-3">
-                    <span className="text-sm">{insight.userCount}</span>
+                    {showDescriptionColumn ? (
+                      <span className="text-sm text-left leading-relaxed block max-w-md">{insight.userSpecificDescription || insight.description}</span>
+                    ) : (
+                      <span className="text-sm">{insight.userCount}</span>
+                    )}
                   </TableCell>
-                  <TableCell className="px-4 py-3">
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        'text-xs border-transparent',
-                        insight.recommendedAction === 'Certify' 
-                          ? 'bg-green-100 text-green-700 hover:bg-green-200' 
-                          : insight.recommendedAction === 'Revoke'
-                          ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                          : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
-                      )}
-                    >
-                      {insight.recommendedAction}
-                    </Badge>
-                  </TableCell>
+                  {!hideRecommendedAction && (
+                    <TableCell className="px-4 py-3">
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          'text-xs border-transparent',
+                          insight.recommendedAction === 'Certify' 
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                            : insight.recommendedAction === 'Revoke'
+                            ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                            : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                        )}
+                      >
+                        {insight.recommendedAction}
+                      </Badge>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
       </PopoverContent>
-    </Popover>
+        </Popover>
+        <TooltipContent className="bg-white text-gray-900 border-gray-200">
+          {tooltipContent}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

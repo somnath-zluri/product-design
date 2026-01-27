@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/table';
 import * as React from 'react';
 import type { ReactNode } from 'react';
-import { ChevronLeft, Search, ChevronRight, AlignLeft, AlignCenter, AlignRight, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ChevronLeft, Search, ChevronRight, AlignLeft, AlignCenter, AlignRight, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, Star, Sparkles, CheckCircle, XCircle, Pencil } from 'lucide-react';
 import { FaApple, FaWindows } from 'react-icons/fa';
 import { SiJira, SiFigma, SiGithub, SiSlack, SiNotion } from 'react-icons/si';
 import { ShieldCheck } from 'lucide-react';
@@ -103,6 +103,18 @@ interface UARProps {
   showStatusColumn?: boolean;
   customStatusValues?: Array<'Pending' | 'Certified' | 'Modified' | 'Revoked'>;
   showReviewerLevelColumn?: boolean;
+  showTwoButtonGroup?: boolean;
+  firstButtonLabel?: string;
+  secondButtonLabel?: string;
+  groupsTabLabel?: string;
+  hideButtonGroup?: boolean;
+  showInsightsFilter?: boolean;
+  showSignOffButton?: boolean;
+  showSuggestedActionColumn?: boolean;
+  hideInsightPopoverRecommendedAction?: boolean;
+  showInsightPopoverDescriptionColumn?: boolean;
+  hideSuggestedActionBadgeOutline?: boolean;
+  filledSparkleIcon?: boolean;
 }
 
 interface TableData {
@@ -249,8 +261,60 @@ const getDueInDays = (index: number) => {
 };
 const getInsightsPercent = (index: number) => (index * 9) % 101;
 
+// Helper function to generate user-specific description
+const generateUserSpecificDescription = (insightName: string, index: number, userName?: string): string => {
+  // Extract days from insight name if present
+  const daysMatch = insightName.match(/(\d+)\s*days?/i);
+  const days = daysMatch ? parseInt(daysMatch[1]) : null;
+  
+  // Generate a random number of days if not specified (between 30-120 days)
+  const randomDays = days || (30 + (index % 91));
+  
+  // Convert insight name to user-specific description (without repeating user name)
+  if (insightName.includes('Privileged Accounts Dormant for 90 days')) {
+    return `Has been dormant for ${randomDays} days with privileged access`;
+  } else if (insightName.includes('Privileged Accounts Dormant for 60 days')) {
+    return `Has been dormant for ${randomDays} days with privileged access`;
+  } else if (insightName.includes('External Accounts Dormant for 90 days')) {
+    return `Has been dormant for ${randomDays} days as an external user`;
+  } else if (insightName.includes('External Accounts Dormant for 60 days')) {
+    return `Has been dormant for ${randomDays} days as an external user`;
+  } else if (insightName.includes('Privileged Accounts Dormant')) {
+    return `Has been dormant for ${days || randomDays} days with privileged access`;
+  } else if (insightName.includes('External Accounts Dormant')) {
+    return `Has been dormant for ${days || randomDays} days as an external user`;
+  } else if (insightName.includes('Dormant Privileged Accounts')) {
+    return `Has been dormant for ${randomDays} days with privileged access`;
+  } else if (insightName.includes('Dormant External Accounts')) {
+    return `Has been dormant for ${randomDays} days as an external user`;
+  } else if (insightName.includes('Accounts Dormant for 90 days')) {
+    return `Has been dormant for ${randomDays} days`;
+  } else if (insightName.includes('Accounts Dormant for 60 days')) {
+    return `Has been dormant for ${randomDays} days`;
+  } else if (insightName.includes('Accounts Dormant for')) {
+    return `Has been dormant for ${days || randomDays} days`;
+  } else if (insightName.includes('All Dormant Accounts')) {
+    return `Has been dormant for ${randomDays} days`;
+  } else if (insightName.includes('Orphaned Privileged Accounts')) {
+    return `Has orphaned privileged access - inactive in directory but active in application`;
+  } else if (insightName.includes('Orphaned External Accounts')) {
+    return `Has orphaned external access - inactive in directory but active in application`;
+  } else if (insightName.includes('Orphaned Accounts')) {
+    return `Has orphaned access - inactive in directory but active in application`;
+  } else if (insightName.includes('Privileged Accounts')) {
+    return `Has privileged access that requires review`;
+  } else if (insightName.includes('External Accounts')) {
+    return `Is classified as an external user`;
+  } else if (insightName.includes('Inactive Licensed Accounts')) {
+    return `Has an inactive account but holds an active license`;
+  }
+  
+  // Default: convert to lowercase and make it user-specific
+  return insightName.toLowerCase().replace(/accounts?/gi, 'account');
+};
+
 // Helper function to generate sample insights data
-const generateInsights = (index: number, userCount: number): Insight[] => {
+const generateInsights = (index: number, userCount: number, includeUserDescriptions: boolean = false, userName?: string): Insight[] => {
   // Generate 3-15 insights per row (minimum 3, maximum 15)
   // Use modulo to cycle through different counts: 3, 4, 5, ..., 15
   const numInsights = Math.min(3 + (index % 13), 15);
@@ -259,12 +323,16 @@ const generateInsights = (index: number, userCount: number): Insight[] => {
   for (let i = 0; i < numInsights; i++) {
     const insightIndex = (index + i) % ALL_INSIGHTS.length;
     const userCountForInsight = Math.floor(userCount / numInsights) + (i === 0 ? userCount % numInsights : 0);
+    const insight = ALL_INSIGHTS[insightIndex];
     
     insights.push({
-      name: ALL_INSIGHTS[insightIndex].name,
-      description: ALL_INSIGHTS[insightIndex].description,
+      name: insight.name,
+      description: insight.description,
       userCount: userCountForInsight,
-      recommendedAction: ALL_INSIGHTS[insightIndex].recommendedAction,
+      recommendedAction: insight.recommendedAction,
+      ...(includeUserDescriptions && {
+        userSpecificDescription: generateUserSpecificDescription(insight.name, index + i, userName),
+      }),
     });
   }
   
@@ -275,6 +343,53 @@ const getRiskLevel = (index: number) => {
   if (roll === 0) return 'High';
   if (roll === 1) return 'Medium';
   return 'Low';
+};
+// Helper function to determine recommended action based on insights and risk level
+const getSuggestedAction = (insights: Insight[], riskLevel: string): 'Certify' | 'Modify' | 'Revoke' => {
+  // Count actions by type
+  const revokeCount = insights.filter(insight => insight.recommendedAction === 'Revoke').length;
+  const modifyCount = insights.filter(insight => insight.recommendedAction === 'Modify').length;
+  const certifyCount = insights.filter(insight => insight.recommendedAction === 'Certify').length;
+  
+  const hasRevoke = revokeCount > 0;
+  const hasModify = modifyCount > 0;
+  const hasCertify = certifyCount > 0;
+  
+  // Normalize risk level for comparison
+  const normalizedRiskLevel = riskLevel?.toString().trim();
+  
+  // For Low Risk users: prioritize Modify over Revoke when there are mixed insights
+  if (normalizedRiskLevel === 'Low') {
+    // If there are Modify insights, prefer Modify (even if there are some Revoke)
+    if (hasModify) {
+      return 'Modify';
+    }
+    // If only Revoke insights exist for Low Risk, still recommend Revoke
+    if (hasRevoke && !hasModify && !hasCertify) {
+      return 'Revoke';
+    }
+    // If only Certify, recommend Certify
+    if (hasCertify && !hasModify && !hasRevoke) {
+      return 'Certify';
+    }
+    // Mixed Revoke and Certify (no Modify) - for Low Risk, prefer Certify
+    if (hasRevoke && hasCertify && !hasModify) {
+      return 'Certify';
+    }
+  }
+  
+  // For Medium/High Risk: prioritize Revoke if present
+  if (hasRevoke) {
+    return 'Revoke';
+  }
+  
+  // If there are Modify recommendations, use Modify
+  if (hasModify) {
+    return 'Modify';
+  }
+  
+  // Default to Certify
+  return 'Certify';
 };
 const getRiskScore = (index: number) => ((index * 13) % 91) + 5;
 const formatCreatedOn = (index: number) => {
@@ -385,10 +500,58 @@ const frozenTableRows = Array.from({ length: 50 }, (_, index) => {
     })(),
     progress: Math.min(100, Math.max(0, (index % 10) * 10 + (index % 3) * 5)),
     actionLabel: 'Review',
-    reviewerLevel: (index % 5) + 1, // Reviewer level from 1 to 5
+    reviewerLevel: Math.floor(Math.random() * 5) + 1, // Random reviewer level from 1 to 5
   };
 })
   .sort((a, b) => a.col5Days - b.col5Days);
+
+// Reviewer Progress data structure - different set of applications (only Application column)
+const reviewerProgressRows = Array.from({ length: 30 }, (_, index) => {
+  // Use different applications for reviewer progress view
+  const reviewerProgressApps = [
+    'Jira',
+    'Confluence',
+    'Bitbucket',
+    'ServiceNow',
+    'Okta',
+    'Azure AD',
+    'AWS IAM',
+    'GitHub Enterprise',
+    'GitLab',
+    'Jenkins',
+    'Docker Hub',
+    'Kubernetes',
+    'Terraform Cloud',
+    'Ansible Tower',
+    'Puppet',
+    'Chef',
+    'Splunk',
+    'Datadog',
+    'New Relic',
+    'PagerDuty',
+    'Opsgenie',
+    'Vault',
+    'CyberArk',
+    'SailPoint',
+    'BeyondTrust',
+    'Qualys',
+    'Nessus',
+    'Rapid7',
+    'Tenable',
+    'Checkmarx',
+  ];
+  
+  return {
+    id: `reviewer-progress-row-${index + 1}`,
+    application: reviewerProgressApps[index % reviewerProgressApps.length],
+    reviewerLevel: Math.floor(Math.random() * 5) + 1, // Random reviewer level from 1 to 5
+    totalLevels: Math.floor(Math.random() * 3) + 3, // Random total levels from 3 to 5
+    activeLevel: Math.floor(Math.random() * 5) + 1, // Random active level from 1 to 5
+    lastReviewedOn: formatCreatedOn(index), // Last reviewed date
+    records: getUsersIncludedCount(index), // Records count
+  };
+})
+  .sort((a, b) => a.application.localeCompare(b.application));
 
 export function UAR({
   className,
@@ -441,6 +604,18 @@ export function UAR({
   showStatusColumn = false,
   customStatusValues,
   showReviewerLevelColumn = false,
+  showTwoButtonGroup = false,
+  firstButtonLabel = 'All',
+  secondButtonLabel = 'Pending',
+  groupsTabLabel = 'Groups',
+  hideButtonGroup = false,
+  showInsightsFilter = false,
+  showSignOffButton = false,
+  showSuggestedActionColumn = false,
+  hideInsightPopoverRecommendedAction = false,
+  showInsightPopoverDescriptionColumn = false,
+  hideSuggestedActionBadgeOutline = false,
+  filledSparkleIcon = false,
 }: UARProps) {
   const deadlineCard = showDeadlineCard ? (
     <div className="relative flex flex-col items-start">
@@ -479,7 +654,7 @@ export function UAR({
   }, [selectedCardValue]);
   const tabItems = [
     { value: 'applications', label: 'Applications', count: tabCounts[0] ?? 0, widthClass: 'w-[190px]' },
-    { value: 'groups', label: 'Groups', count: tabCounts[1] ?? 0, widthClass: 'w-[130px]' },
+    { value: 'groups', label: groupsTabLabel, count: tabCounts[1] ?? 0, widthClass: 'w-[130px]' },
     { value: 'users', label: 'Users', count: tabCounts[2] ?? 0, widthClass: 'w-[120px]' },
   ].filter((tab) => !(hideUsersTab && tab.value === 'users'));
   const [pagination, setPagination] = React.useState({
@@ -495,6 +670,65 @@ export function UAR({
   const [sortColumn, setSortColumn] = React.useState<string | null>(initialSortColumn || 'col1');
   const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>(initialSortDirection || 'asc');
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'pending' | 'reviewed'>('all');
+  const [viewMode, setViewMode] = React.useState<'review' | 'reviewer-progress'>('review');
+  const [selectedInsightFilters, setSelectedInsightFilters] = React.useState<Set<string>>(new Set());
+  const insightsScrollRef = React.useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = React.useState(false);
+  const [canScrollRight, setCanScrollRight] = React.useState(true);
+
+  // Check scroll position and update button states
+  const checkScrollPosition = React.useCallback(() => {
+    if (insightsScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = insightsScrollRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
+    }
+  }, []);
+
+  // Scroll handlers
+  const scrollInsights = (direction: 'left' | 'right') => {
+    if (insightsScrollRef.current) {
+      const scrollAmount = 200; // pixels to scroll
+      const newScrollLeft = insightsScrollRef.current.scrollLeft + (direction === 'left' ? -scrollAmount : scrollAmount);
+      insightsScrollRef.current.scrollTo({
+        left: newScrollLeft,
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  // Handle horizontal scroll on wheel
+  const handleWheel = React.useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    if (insightsScrollRef.current) {
+      e.preventDefault();
+      insightsScrollRef.current.scrollLeft += e.deltaY;
+    }
+  }, []);
+
+  // Check scroll position on mount and resize
+  React.useEffect(() => {
+    // Delay to ensure content is rendered
+    const timer = setTimeout(() => {
+      checkScrollPosition();
+    }, 100);
+    
+    const scrollContainer = insightsScrollRef.current;
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', checkScrollPosition);
+      window.addEventListener('resize', checkScrollPosition);
+      return () => {
+        clearTimeout(timer);
+        scrollContainer.removeEventListener('scroll', checkScrollPosition);
+        window.removeEventListener('resize', checkScrollPosition);
+      };
+    }
+    return () => clearTimeout(timer);
+  }, [checkScrollPosition, showInsightsFilter]);
+  
+  // Reset pagination when switching views
+  React.useEffect(() => {
+    setFrozenPageIndex(0);
+  }, [viewMode]);
 
   // Sort the data based on current sort column and direction
   const sortedTableRows = React.useMemo(() => {
@@ -590,10 +824,13 @@ export function UAR({
     return 'user-asc'; // Default to user-asc
   };
 
-  const frozenPageCount = Math.ceil(sortedTableRows.length / frozenPageSize);
+  // Determine which data set to use based on view mode
+  const currentDataRows = viewMode === 'reviewer-progress' ? reviewerProgressRows : sortedTableRows;
+  
+  const frozenPageCount = Math.ceil(currentDataRows.length / frozenPageSize);
   const frozenPageStart = frozenPageIndex * frozenPageSize;
-  const frozenPageEnd = Math.min(frozenPageStart + frozenPageSize, sortedTableRows.length);
-  const frozenPageRows = sortedTableRows.slice(frozenPageStart, frozenPageEnd);
+  const frozenPageEnd = Math.min(frozenPageStart + frozenPageSize, currentDataRows.length);
+  const frozenPageRows = currentDataRows.slice(frozenPageStart, frozenPageEnd);
   const headerDescriptionBlock = showHeaderDescription ? (
     <div className="text-sm text-foreground max-w-[520px]">
       <p className="line-clamp-3">
@@ -1267,32 +1504,127 @@ export function UAR({
                           </TabsList>
                         ) : null}
                         </Tabs>
+                        {showInsightsFilter && (
+                          <div className="mt-4 flex h-fit items-center gap-3 px-4 py-0">
+                            <span className="text-sm font-medium shrink-0 flex items-center gap-1.5">
+                              <Sparkles className="h-4 w-4" />
+                              Insights
+                            </span>
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <button
+                                onClick={() => scrollInsights('left')}
+                                disabled={!canScrollLeft}
+                                className={cn(
+                                  "shrink-0 h-8 w-8 flex items-center justify-center rounded-full border transition-colors",
+                                  canScrollLeft
+                                    ? "bg-background hover:bg-muted cursor-pointer border-border"
+                                    : "bg-muted cursor-not-allowed border-muted opacity-50"
+                                )}
+                                aria-label="Scroll left"
+                              >
+                                <ChevronLeft className={cn("h-4 w-4", !canScrollLeft && "text-muted-foreground")} />
+                              </button>
+                              <div
+                                ref={insightsScrollRef}
+                                onWheel={handleWheel}
+                                className="flex items-center gap-2 overflow-x-auto flex-1 min-w-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                              >
+                                {ALL_INSIGHTS.map((insight, index) => {
+                                  const insightId = insight.name.toLowerCase().replace(/\s+/g, '-');
+                                  const isSelected = selectedInsightFilters.has(insightId);
+                                  // Placeholder count - can be calculated from actual data later
+                                  // Using index-based calculation for stable counts
+                                  const count = ((index * 7) % 50) + 1;
+                                  
+                                  return (
+                                    <button
+                                      key={insightId}
+                                      onClick={() => {
+                                        const newSelected = new Set(selectedInsightFilters);
+                                        if (isSelected) {
+                                          newSelected.delete(insightId);
+                                        } else {
+                                          newSelected.add(insightId);
+                                        }
+                                        setSelectedInsightFilters(newSelected);
+                                      }}
+                                      className={cn(
+                                        "rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer shrink-0 whitespace-nowrap",
+                                        isSelected
+                                          ? "bg-primary text-primary-foreground border-primary"
+                                          : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                                      )}
+                                    >
+                                      {count} {insight.name}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <button
+                                onClick={() => scrollInsights('right')}
+                                disabled={!canScrollRight}
+                                className={cn(
+                                  "shrink-0 h-8 w-8 flex items-center justify-center rounded-full border transition-colors",
+                                  canScrollRight
+                                    ? "bg-background hover:bg-muted cursor-pointer border-border"
+                                    : "bg-muted cursor-not-allowed border-muted opacity-50"
+                                )}
+                                aria-label="Scroll right"
+                              >
+                                <ChevronRight className={cn("h-4 w-4", !canScrollRight && "text-muted-foreground")} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
                         <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
-                          <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-background px-4 py-3">
+                          <div className="mt-0 flex flex-wrap items-center justify-between gap-3 border-b bg-background px-4 h-fit pt-3 pb-3">
                             <div className="flex flex-wrap items-center gap-2">
-                              <ButtonGroup>
-                                <Button
-                                  variant={statusFilter === 'all' ? 'default' : 'outline'}
-                                  size="sm"
-                                  onClick={() => setStatusFilter('all')}
-                                >
-                                  All
-                                </Button>
-                                <Button
-                                  variant={statusFilter === 'pending' ? 'default' : 'outline'}
-                                  size="sm"
-                                  onClick={() => setStatusFilter('pending')}
-                                >
-                                  Pending
-                                </Button>
-                                <Button
-                                  variant={statusFilter === 'reviewed' ? 'default' : 'outline'}
-                                  size="sm"
-                                  onClick={() => setStatusFilter('reviewed')}
-                                >
-                                  Reviewed
-                                </Button>
-                              </ButtonGroup>
+                              {!hideButtonGroup && (
+                                <>
+                                  {showTwoButtonGroup ? (
+                                    <ButtonGroup>
+                                      <Button
+                                        variant={viewMode === 'review' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setViewMode('review')}
+                                      >
+                                        {firstButtonLabel}
+                                      </Button>
+                                      <Button
+                                        variant={viewMode === 'reviewer-progress' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setViewMode('reviewer-progress')}
+                                      >
+                                        {secondButtonLabel}
+                                      </Button>
+                                    </ButtonGroup>
+                                  ) : (
+                                    <ButtonGroup>
+                                      <Button
+                                        variant={statusFilter === 'all' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setStatusFilter('all')}
+                                      >
+                                        {firstButtonLabel}
+                                      </Button>
+                                      <Button
+                                        variant={statusFilter === 'pending' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setStatusFilter('pending')}
+                                      >
+                                        {secondButtonLabel}
+                                      </Button>
+                                      <Button
+                                        variant={statusFilter === 'reviewed' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setStatusFilter('reviewed')}
+                                      >
+                                        Reviewed
+                                      </Button>
+                                    </ButtonGroup>
+                                  )}
+                                </>
+                              )}
                               {!hideViewByFilter && (
                                 <div className="relative">
                                   <label
@@ -1308,7 +1640,7 @@ export function UAR({
                                     <SelectContent>
                                       <SelectItem value="all">All</SelectItem>
                                       <SelectItem value="applications">Applications</SelectItem>
-                                      <SelectItem value="groups">Groups</SelectItem>
+                                      <SelectItem value="groups">{groupsTabLabel}</SelectItem>
                                       <SelectItem value="users">Users</SelectItem>
                                     </SelectContent>
                                   </Select>
@@ -1349,10 +1681,18 @@ export function UAR({
                                 Filters
                               </Button>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-3">
+                              {showSignOffButton && (
+                                <>
+                                  <Button variant="default" size="sm">
+                                    Sign-off
+                                  </Button>
+                                  <Separator orientation="vertical" className="h-6" />
+                                </>
+                              )}
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <span>
-                                  {frozenPageStart + 1}-{frozenPageEnd} of {frozenTableRows.length}
+                                  {frozenPageStart + 1}-{frozenPageEnd} of {currentDataRows.length}
                                 </span>
                                 <Button
                                   variant="ghost"
@@ -1383,25 +1723,42 @@ export function UAR({
                             <Table className="min-w-[900px]">
                             <TableHeader className="sticky top-0 z-20 bg-muted border-b [&_tr]:border-b">
                               <TableRow>
-                                <TableHead 
-                                  className={`py-2 text-xs bg-muted ${firstColumnWidth ? '' : 'w-[360px]'} cursor-pointer select-none transition-colors hover:bg-muted/80 group ${freezeFirstColumn ? 'sticky left-0 z-20' : ''}`}
-                                  onClick={() => handleSort('col1')}
-                                  style={firstColumnWidth ? { width: `${firstColumnWidth}px` } : undefined}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span>{firstColumnHeader ?? 'Certification'}</span>
-                                    {sortColumn === 'col1' ? (
-                                      sortDirection === 'asc' ? (
-                                        <ArrowUp className="h-3 w-3 text-primary" />
-                                      ) : (
-                                        <ArrowDown className="h-3 w-3 text-primary" />
-                                      )
-                                    ) : (
-                                      <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
-                                    )}
-                                  </div>
-                                </TableHead>
-                                {!hideOwnerColumn ? (
+                                {viewMode === 'reviewer-progress' ? (
+                                  <>
+                                    <TableHead 
+                                      className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span>Application</span>
+                                        <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                      </div>
+                                    </TableHead>
+                                    <TableHead className="py-2 text-xs bg-muted">Records</TableHead>
+                                    <TableHead className="py-2 text-xs bg-muted">Level Status (Progress)</TableHead>
+                                    <TableHead className="py-2 text-xs bg-muted">Last Reviewed</TableHead>
+                                    <TableHead className="py-2 text-xs bg-muted">Action</TableHead>
+                                  </>
+                                ) : (
+                                  <>
+                                    <TableHead 
+                                      className={`py-2 text-xs bg-muted ${firstColumnWidth ? '' : 'w-[360px]'} cursor-pointer select-none transition-colors hover:bg-muted/80 group ${freezeFirstColumn ? 'sticky left-0 z-20' : ''}`}
+                                      onClick={() => handleSort('col1')}
+                                      style={firstColumnWidth ? { width: `${firstColumnWidth}px` } : undefined}
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <span>{firstColumnHeader ?? 'Certification'}</span>
+                                        {sortColumn === 'col1' ? (
+                                          sortDirection === 'asc' ? (
+                                            <ArrowUp className="h-3 w-3 text-primary" />
+                                          ) : (
+                                            <ArrowDown className="h-3 w-3 text-primary" />
+                                          )
+                                        ) : (
+                                          <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                        )}
+                                      </div>
+                                    </TableHead>
+                                    {!hideOwnerColumn ? (
                                   <TableHead 
                                     className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
                                     onClick={() => handleSort('col2')}
@@ -1419,264 +1776,511 @@ export function UAR({
                                       )}
                                     </div>
                                   </TableHead>
-                                ) : null}
-                                {showTimeRemainingColumn ? (
-                                  <TableHead 
-                                    className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
-                                    onClick={() => handleSort('col5Days')}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <span>Time remaining</span>
-                                      {sortColumn === 'col5Days' ? (
-                                        sortDirection === 'asc' ? (
-                                          <ArrowUp className="h-3 w-3 text-primary" />
-                                        ) : (
-                                          <ArrowDown className="h-3 w-3 text-primary" />
-                                        )
-                                      ) : (
-                                        <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
-                                      )}
-                                    </div>
-                                  </TableHead>
-                                ) : null}
-                                {!hideProgressColumn ? (
-                                  <TableHead 
-                                    className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
-                                    onClick={() => handleSort('progress')}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <span>Progress</span>
-                                      {sortColumn === 'progress' ? (
-                                        sortDirection === 'asc' ? (
-                                          <ArrowUp className="h-3 w-3 text-primary" />
-                                        ) : (
-                                          <ArrowDown className="h-3 w-3 text-primary" />
-                                        )
-                                      ) : (
-                                        <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
-                                      )}
-                                    </div>
-                                  </TableHead>
-                                ) : null}
-                                {showRiskScoreColumn ? (
-                                  <TableHead className="py-2 text-xs bg-muted">{riskColumnHeader ?? 'App Risk Sensitivity'}</TableHead>
-                                ) : null}
-                                {showStatusColumn ? (
-                                  <TableHead className="py-2 text-xs bg-muted">Status</TableHead>
-                                ) : null}
-                                {showReviewerLevelColumn ? (
-                                  <TableHead className="py-2 text-xs bg-muted">Reviewer level</TableHead>
-                                ) : null}
-                                {!hideUsersIncludedColumn ? (
-                                  <TableHead className="py-2 text-xs bg-muted">Records</TableHead>
-                                ) : null}
-                                {!hideInsightsColumn ? (
-                                  <TableHead className="py-2 text-xs bg-muted">{insightsColumnHeader ?? 'Bulk action eligible'}</TableHead>
-                                ) : null}
-                                <TableHead className="py-2 text-xs bg-muted">Action</TableHead>
+                                    ) : null}
+                                    {showTimeRemainingColumn ? (
+                                      <TableHead 
+                                        className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                        onClick={() => handleSort('col5Days')}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span>Time remaining</span>
+                                          {sortColumn === 'col5Days' ? (
+                                            sortDirection === 'asc' ? (
+                                              <ArrowUp className="h-3 w-3 text-primary" />
+                                            ) : (
+                                              <ArrowDown className="h-3 w-3 text-primary" />
+                                            )
+                                          ) : (
+                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                          )}
+                                        </div>
+                                      </TableHead>
+                                    ) : null}
+                                    {!hideProgressColumn ? (
+                                      <TableHead 
+                                        className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                        onClick={() => handleSort('progress')}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span>Progress</span>
+                                          {sortColumn === 'progress' ? (
+                                            sortDirection === 'asc' ? (
+                                              <ArrowUp className="h-3 w-3 text-primary" />
+                                            ) : (
+                                              <ArrowDown className="h-3 w-3 text-primary" />
+                                            )
+                                          ) : (
+                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                          )}
+                                        </div>
+                                      </TableHead>
+                                    ) : null}
+                                    {showRiskScoreColumn ? (
+                                      <TableHead className="py-2 text-xs bg-muted">{riskColumnHeader ?? 'App Risk Sensitivity'}</TableHead>
+                                    ) : null}
+                                    {showStatusColumn ? (
+                                      <TableHead className="py-2 text-xs bg-muted">Status</TableHead>
+                                    ) : null}
+                                    {!hideUsersIncludedColumn ? (
+                                      <TableHead className="py-2 text-xs bg-muted">Records</TableHead>
+                                    ) : null}
+                                    {!hideInsightsColumn && !showSuggestedActionColumn ? (
+                                      <TableHead className="py-2 text-xs bg-muted">{insightsColumnHeader ?? 'Bulk action eligible'}</TableHead>
+                                    ) : null}
+                                    {showReviewerLevelColumn ? (
+                                      <TableHead className="py-2 text-xs bg-muted">Your Review Level</TableHead>
+                                    ) : null}
+                                    {showSuggestedActionColumn ? (
+                                      <TableHead className="py-2 text-xs bg-muted">Suggested Action</TableHead>
+                                    ) : null}
+                                    <TableHead className="py-2 text-xs bg-muted">Action</TableHead>
+                                  </>
+                                )}
                               </TableRow>
                             </TableHeader>
                             <TableBody>
-                              {frozenPageRows.map((row) => (
+                              {frozenPageRows.map((row) => {
+                                // Helper function to extract user name from row
+                                const getUserName = (row: any): string | undefined => {
+                                  if (customSortByUser && sampleUsersForSorting && sampleUsersForSorting.length > 0) {
+                                    const rowIndex = parseInt(row.id.replace('row-', '')) - 1;
+                                    const user = sampleUsersForSorting[rowIndex % sampleUsersForSorting.length];
+                                    if (user) {
+                                      return `${user.firstName} ${user.lastName}`;
+                                    }
+                                  }
+                                  if (firstColumnHeader === 'User' && row.col1) {
+                                    return row.col1;
+                                  }
+                                  return undefined;
+                                };
+                                
+                                const userName = getUserName(row);
+                                
+                                return (
                                 <TableRow key={row.id}>
-                                  <TableCell 
-                                    className={`py-2 text-sm ${firstColumnWidth ? '' : 'w-[360px]'} ${freezeFirstColumn ? 'sticky left-0 z-10 bg-background' : ''}`}
-                                    style={firstColumnWidth ? { width: `${firstColumnWidth}px` } : undefined}
-                                  >
-                                    {customFirstColumnCell ? (
-                                      customFirstColumnCell(row)
-                                    ) : (
-                                      <span className="truncate max-w-[340px] block" title={firstColumnHeader === 'Application' ? row.appBaseName : row.col1}>
-                                        {firstColumnHeader === 'Application' ? row.appBaseName : row.col1}
-                                      </span>
-                                    )}
-                                  </TableCell>
-                                  {!hideOwnerColumn ? (
-                                    <TableCell className="py-2 text-sm">
-                                      <div className="flex items-center gap-2">
-                                        <Avatar className="h-6 w-6">
-                                          <AvatarFallback className="text-[10px]">
-                                            {getInitials(row.col2)}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <span className="border-b border-dashed border-current pb-[1px]">
-                                          {row.col2}
+                                  {viewMode === 'reviewer-progress' ? (
+                                    <>
+                                      <TableCell className="py-2 text-sm">
+                                        <span className="truncate max-w-[340px] block" title={(row as any).application}>
+                                          {(row as any).application}
                                         </span>
-                                      </div>
-                                    </TableCell>
-                                  ) : null}
-                                  {showTimeRemainingColumn ? (
-                                    <TableCell className="py-2 text-sm">
-                                      <div className="flex items-center gap-2">
-                                        <span>
-                                          {row.col5Days < 0
-                                            ? `${Math.abs(row.col5Days)} days ago`
-                                            : `${row.col5Days} days left`}
-                                        </span>
-                                        <Badge
-                                          variant="secondary"
-                                          className={`inline-block max-w-[120px] min-w-0 border-transparent text-xs font-semibold overflow-hidden text-ellipsis whitespace-nowrap [&>*]:truncate ${
-                                            row.col9 === 'Overdue'
-                                              ? 'bg-red-100 text-red-700'
-                                              : row.col9 === 'At-risk'
-                                              ? 'bg-orange-100 text-orange-700'
-                                              : 'bg-green-100 text-green-700'
-                                          }`}
-                                        >
-                                          {row.col9 === 'Overdue'
-                                            ? 'Overdue'
-                                            : row.col9 === 'At-risk'
-                                            ? 'At-Risk'
-                                            : 'On-Track'}
-                                        </Badge>
-                                      </div>
-                                    </TableCell>
-                                  ) : null}
-                                  {!hideProgressColumn ? (
-                                    <TableCell className="py-2 text-sm">
-                                      <div className="flex items-center gap-2 w-[120px]">
-                                        <div className="relative h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
-                                          <div
-                                            className="h-full transition-all rounded-full"
-                                            style={{
-                                              width: `${row.progress}%`,
-                                              backgroundColor: 'hsl(142, 71%, 45%)',
-                                            }}
-                                          />
-                                        </div>
-                                        <span className="text-xs whitespace-nowrap">{row.progress}%</span>
-                                      </div>
-                                    </TableCell>
-                                  ) : null}
-                                  {showRiskScoreColumn ? (
-                                    <TableCell className="py-2 text-sm">
-                                      {hideRiskGauge ? (
-                                        <span className="text-sm">{row.riskLevel}</span>
-                                      ) : (
-                                        renderRiskGauge(row.riskLevel as 'High' | 'Medium' | 'Low', row.riskScore)
-                                      )}
-                                    </TableCell>
-                                  ) : null}
-                                  {showStatusColumn ? (
-                                    <TableCell className="py-2 text-sm">
-                                      {(() => {
-                                        // Use custom status values if provided, otherwise use default col9 values
-                                        let status: string;
-                                        let statusClass: string;
-                                        
-                                        if (customStatusValues && customStatusValues.length > 0) {
-                                          const rowIndex = parseInt(row.id.replace('row-', '')) - 1;
-                                          const statusIndex = rowIndex % customStatusValues.length;
-                                          status = customStatusValues[statusIndex];
-                                          
-                                          // Color coding for custom statuses
-                                          if (status === 'Pending') {
-                                            statusClass = 'bg-yellow-100 text-yellow-700';
-                                          } else if (status === 'Certified') {
-                                            statusClass = 'bg-green-100 text-green-700';
-                                          } else if (status === 'Modified') {
-                                            statusClass = 'bg-blue-100 text-blue-700';
-                                          } else { // Revoked
-                                            statusClass = 'bg-red-100 text-red-700';
-                                          }
-                                        } else {
-                                          // Default status values (Overdue, At-risk, On-track)
-                                          status = row.col9 === 'Overdue'
-                                            ? 'Overdue'
-                                            : row.col9 === 'At-risk'
-                                            ? 'At-Risk'
-                                            : 'On-Track';
-                                          statusClass = row.col9 === 'Overdue'
-                                            ? 'bg-red-100 text-red-700'
-                                            : row.col9 === 'At-risk'
-                                            ? 'bg-orange-100 text-orange-700'
-                                            : 'bg-green-100 text-green-700';
-                                        }
-                                        
-                                        return (
-                                          <Badge
-                                            variant="secondary"
-                                            className={`inline-block max-w-[120px] min-w-0 border-transparent text-xs font-semibold overflow-hidden text-ellipsis whitespace-nowrap [&>*]:truncate ${statusClass}`}
-                                          >
-                                            {status}
-                                          </Badge>
-                                        );
-                                      })()}
-                                    </TableCell>
-                                  ) : null}
-                                  {showReviewerLevelColumn ? (
-                                    <TableCell className="py-2 text-sm">
-                                      <Badge
-                                        variant="secondary"
-                                        className="inline-block border-transparent text-xs font-semibold bg-blue-100 text-blue-700"
-                                      >
-                                        Level {row.reviewerLevel}
-                                      </Badge>
-                                    </TableCell>
-                                  ) : null}
-                                  {!hideAppIncludedColumn ? (
-                                    <TableCell className="py-2 text-sm">{row.col6}</TableCell>
-                                  ) : null}
-                                  {!hideUsersIncludedColumn ? (
-                                    <TableCell className="py-2 text-sm">{formatNumber(row.col7)}</TableCell>
-                                  ) : null}
-                                  {!hideInsightsColumn ? (
-                                    <TableCell className="py-2 text-sm">
-                                      {showInsightsBadgeOnly ? (
-                                        (() => {
-                                          const match = row.col8.match(/(\d+)%/);
-                                          const percent = match ? parseInt(match[1]) : 0;
-                                          const userCount = parseInt(row.col7.replace(/,/g, '')) || 0;
-                                          const records = Math.floor((percent / 100) * userCount);
-                                          const rowIndex = parseInt(row.id.replace('row-', '')) - 1;
-                                          const generatedInsights = generateInsights(rowIndex >= 0 ? rowIndex : 0, records);
-                                          return (
-                                            <InsightBadge
-                                              count={generatedInsights.length}
-                                              insights={generatedInsights}
-                                            />
-                                          );
-                                        })()
-                                      ) : (
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-sm">{row.col8}</span>
-                                          <Separator orientation="vertical" className="h-4" />
-                                          {(() => {
-                                            const match = row.col8.match(/(\d+)%/);
-                                            const percent = match ? parseInt(match[1]) : 0;
-                                            const userCount = parseInt(row.col7.replace(/,/g, '')) || 0;
-                                            const records = Math.floor((percent / 100) * userCount);
-                                            const rowIndex = parseInt(row.id.replace('row-', '')) - 1;
-                                            const generatedInsights = generateInsights(rowIndex >= 0 ? rowIndex : 0, records);
+                                      </TableCell>
+                                      <TableCell className="py-2 text-sm">
+                                        {formatNumber((row as any).records)}
+                                      </TableCell>
+                                      {/* Progress Indicator Style with Stripe Background */}
+                                      <TableCell className="py-2 text-sm">
+                                        <div className="flex items-center gap-1.5">
+                                          {Array.from({ length: (row as any).totalLevels }, (_, i) => {
+                                            const levelNum = i + 1;
+                                            const activeLevel = (row as any).activeLevel;
+                                            const reviewerLevel = (row as any).reviewerLevel;
+                                            
+                                            // Hierarchical logic: levels are sequential
+                                            // - Completed: levelNum < activeLevel (primary fill)
+                                            // - Work in progress: levelNum === activeLevel (solid outline)
+                                            // - Pending: levelNum > activeLevel (dashed outline)
+                                            
+                                            const isCompleted = levelNum < activeLevel;
+                                            const isWorkInProgress = levelNum === activeLevel;
+                                            const isPending = levelNum > activeLevel;
+                                            
+                                            // Check if this is the reviewer's review level
+                                            const isReviewerLevel = levelNum === reviewerLevel;
+                                            
+                                            // Determine stripe pattern for reviewer's review level
+                                            // Stripe can be applied to green, yellow, or grey badges
+                                            const getStripePattern = () => {
+                                              if (!isReviewerLevel) return undefined;
+                                              
+                                              // Stripe pattern for green badge (completed)
+                                              if (isCompleted) {
+                                                return {
+                                                  background: `repeating-linear-gradient(
+                                                    45deg,
+                                                    rgb(220 252 231),
+                                                    rgb(220 252 231) 5px,
+                                                    rgb(187 247 208) 5px,
+                                                    rgb(187 247 208) 7px
+                                                  )`,
+                                                };
+                                              }
+                                              
+                                              // Stripe pattern for yellow badge (work in progress)
+                                              if (isWorkInProgress) {
+                                                return {
+                                                  background: `repeating-linear-gradient(
+                                                    45deg,
+                                                    rgb(254 249 195),
+                                                    rgb(254 249 195) 5px,
+                                                    rgb(254 240 138) 5px,
+                                                    rgb(254 240 138) 7px
+                                                  )`,
+                                                };
+                                              }
+                                              
+                                              // Stripe pattern for grey badge (pending)
+                                              if (isPending) {
+                                                return {
+                                                  background: `repeating-linear-gradient(
+                                                    45deg,
+                                                    rgb(249 250 251),
+                                                    rgb(249 250 251) 5px,
+                                                    rgb(229 231 235) 5px,
+                                                    rgb(229 231 235) 7px
+                                                  )`,
+                                                };
+                                              }
+                                              
+                                              return undefined;
+                                            };
+                                            
                                             return (
-                                              <InsightBadge
-                                                count={generatedInsights.length}
-                                                insights={generatedInsights}
+                                              <div
+                                                key={levelNum}
+                                                className={cn(
+                                                  "relative flex items-center justify-center min-w-[28px] h-6 px-1.5 rounded-md text-xs font-medium transition-colors",
+                                                  // Completed levels - Subtle green fill (job is done, no outline)
+                                                  // If reviewer level, remove background to show stripe pattern
+                                                  isCompleted && !isReviewerLevel && "bg-green-100 text-green-800",
+                                                  isCompleted && isReviewerLevel && "text-green-800 border border-green-500/70",
+                                                  // Work in progress (active level) - Yellow with stripe pattern if reviewer level
+                                                  isWorkInProgress && !isReviewerLevel && "bg-yellow-100 border border-yellow-500/70 text-yellow-800",
+                                                  isWorkInProgress && isReviewerLevel && "border border-yellow-500/70 text-yellow-800",
+                                                  // Pending levels - Subtle gray dashed outline with muted text
+                                                  // If reviewer level, remove background to show stripe pattern
+                                                  isPending && !isReviewerLevel && "bg-gray-100/50 border border-dashed border-gray-400/60 text-muted-foreground",
+                                                  isPending && isReviewerLevel && "border border-dashed border-gray-400/60 text-muted-foreground"
+                                                )}
+                                                style={getStripePattern()}
+                                              >
+                                                <span>L{levelNum}</span>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="py-2 text-sm">
+                                        {(row as any).lastReviewedOn}
+                                      </TableCell>
+                                      <TableCell className="py-2">
+                                        <Button variant="secondary" size="sm" className="h-7 text-xs">
+                                          Reminder
+                                        </Button>
+                                      </TableCell>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <TableCell 
+                                        className={`py-2 text-sm ${firstColumnWidth ? '' : 'w-[360px]'} ${freezeFirstColumn ? 'sticky left-0 z-10 bg-background' : ''}`}
+                                        style={firstColumnWidth ? { width: `${firstColumnWidth}px` } : undefined}
+                                      >
+                                        {customFirstColumnCell ? (
+                                          customFirstColumnCell(row)
+                                        ) : (
+                                          <span className="truncate max-w-[340px] block" title={firstColumnHeader === 'Application' ? (row as any).appBaseName : (row as any).col1}>
+                                            {firstColumnHeader === 'Application' ? (row as any).appBaseName : (row as any).col1}
+                                          </span>
+                                        )}
+                                      </TableCell>
+                                      {!hideOwnerColumn ? (
+                                        <TableCell className="py-2 text-sm">
+                                          <div className="flex items-center gap-2">
+                                            <Avatar className="h-6 w-6">
+                                              <AvatarFallback className="text-[10px]">
+                                                {getInitials((row as any).col2)}
+                                              </AvatarFallback>
+                                            </Avatar>
+                                            <span className="border-b border-dashed border-current pb-[1px]">
+                                              {(row as any).col2}
+                                            </span>
+                                          </div>
+                                        </TableCell>
+                                      ) : null}
+                                      {showTimeRemainingColumn ? (
+                                        <TableCell className="py-2 text-sm">
+                                          <div className="flex items-center gap-2">
+                                            <span>
+                                              {(row as any).col5Days < 0
+                                                ? `${Math.abs((row as any).col5Days)} days ago`
+                                                : `${(row as any).col5Days} days left`}
+                                            </span>
+                                            <Badge
+                                              variant="secondary"
+                                              className={`inline-block w-[64px] border-transparent text-xs font-semibold overflow-hidden text-ellipsis whitespace-nowrap [&>*]:truncate ${
+                                                (row as any).col9 === 'Overdue'
+                                                  ? 'bg-red-100 text-red-700'
+                                                  : (row as any).col9 === 'At-risk'
+                                                  ? 'bg-orange-100 text-orange-700'
+                                                  : 'bg-green-100 text-green-700'
+                                              }`}
+                                            >
+                                              {(row as any).col9 === 'Overdue'
+                                                ? 'Overdue'
+                                                : (row as any).col9 === 'At-risk'
+                                                ? 'At-Risk'
+                                                : 'On-Track'}
+                                            </Badge>
+                                          </div>
+                                        </TableCell>
+                                      ) : null}
+                                      {!hideProgressColumn ? (
+                                        <TableCell className="py-2 text-sm">
+                                          <div className="flex items-center gap-2 w-[120px]">
+                                            <div className="relative h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
+                                              <div
+                                                className="h-full transition-all rounded-full"
+                                                style={{
+                                                  width: `${(row as any).progress}%`,
+                                                  backgroundColor: 'hsl(142, 71%, 45%)',
+                                                }}
                                               />
+                                            </div>
+                                            <span className="text-xs whitespace-nowrap">{(row as any).progress}%</span>
+                                          </div>
+                                        </TableCell>
+                                      ) : null}
+                                      {showRiskScoreColumn ? (
+                                        <TableCell className="py-2 text-sm">
+                                          {hideRiskGauge ? (
+                                            <span className="text-sm">{(row as any).riskLevel}</span>
+                                          ) : (
+                                            renderRiskGauge((row as any).riskLevel as 'High' | 'Medium' | 'Low', (row as any).riskScore)
+                                          )}
+                                        </TableCell>
+                                      ) : null}
+                                      {showStatusColumn ? (
+                                        <TableCell className="py-2 text-sm">
+                                          {(() => {
+                                            // Use custom status values if provided, otherwise use default col9 values
+                                            let status: string;
+                                            let statusClass: string;
+                                            
+                                            if (customStatusValues && customStatusValues.length > 0) {
+                                              const rowIndex = parseInt((row as any).id.replace('row-', '')) - 1;
+                                              const statusIndex = rowIndex % customStatusValues.length;
+                                              status = customStatusValues[statusIndex];
+                                              
+                                              // Color coding for custom statuses
+                                              if (status === 'Pending') {
+                                                statusClass = 'bg-yellow-100 text-yellow-700';
+                                              } else if (status === 'Certified') {
+                                                statusClass = 'bg-green-100 text-green-700';
+                                              } else if (status === 'Modified') {
+                                                statusClass = 'bg-blue-100 text-blue-700';
+                                              } else { // Revoked
+                                                statusClass = 'bg-red-100 text-red-700';
+                                              }
+                                            } else {
+                                              // Default status values (Overdue, At-risk, On-track)
+                                              status = (row as any).col9 === 'Overdue'
+                                                ? 'Overdue'
+                                                : (row as any).col9 === 'At-risk'
+                                                ? 'At-Risk'
+                                                : 'On-Track';
+                                              statusClass = (row as any).col9 === 'Overdue'
+                                                ? 'bg-red-100 text-red-700'
+                                                : (row as any).col9 === 'At-risk'
+                                                ? 'bg-orange-100 text-orange-700'
+                                                : 'bg-green-100 text-green-700';
+                                            }
+                                            
+                                            return (
+                                              <Badge
+                                                variant="secondary"
+                                                className={`inline-block w-[64px] border-transparent text-xs font-semibold overflow-hidden text-ellipsis whitespace-nowrap [&>*]:truncate ${statusClass}`}
+                                              >
+                                                {status}
+                                              </Badge>
                                             );
                                           })()}
-                                        </div>
-                                      )}
-                                    </TableCell>
-                                  ) : null}
-                                  <TableCell className="py-2">
-                                    {customActionColumn ? (
-                                      customActionColumn(row)
-                                    ) : (
-                                      <Button size="sm" className="h-7 text-xs">
-                                        {row.actionLabel}
-                                      </Button>
-                                    )}
-                                  </TableCell>
+                                        </TableCell>
+                                      ) : null}
+                                      {!hideAppIncludedColumn ? (
+                                        <TableCell className="py-2 text-sm">{(row as any).col6}</TableCell>
+                                      ) : null}
+                                      {!hideUsersIncludedColumn ? (
+                                        <TableCell className="py-2 text-sm">{formatNumber((row as any).col7)}</TableCell>
+                                      ) : null}
+                                      {!hideInsightsColumn && !showSuggestedActionColumn ? (
+                                        <TableCell className="py-2 text-sm">
+                                          {showInsightsBadgeOnly ? (
+                                            (() => {
+                                              const match = (row as any).col8?.match(/(\d+)%/);
+                                              const percent = match ? parseInt(match[1]) : 0;
+                                              const userCount = parseInt((row as any).col7?.replace(/,/g, '') || '0') || 0;
+                                              const records = Math.floor((percent / 100) * userCount);
+                                              const rowIndex = parseInt((row as any).id.replace('row-', '')) - 1;
+                                              const generatedInsights = generateInsights(rowIndex >= 0 ? rowIndex : 0, records, showInsightPopoverDescriptionColumn, showInsightPopoverDescriptionColumn ? userName : undefined);
+                                              return (
+                                                <InsightBadge
+                                                  count={generatedInsights.length}
+                                                  insights={generatedInsights}
+                                                  hideRecommendedAction={hideInsightPopoverRecommendedAction}
+                                                  userName={userName}
+                                                  showDescriptionColumn={showInsightPopoverDescriptionColumn}
+                                                  filledSparkleIcon={filledSparkleIcon}
+                                                />
+                                              );
+                                            })()
+                                          ) : (
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-sm">{(row as any).col8}</span>
+                                              <Separator orientation="vertical" className="h-4" />
+                                              {(() => {
+                                                const match = (row as any).col8?.match(/(\d+)%/);
+                                                const percent = match ? parseInt(match[1]) : 0;
+                                                const userCount = parseInt((row as any).col7?.replace(/,/g, '') || '0') || 0;
+                                                const records = Math.floor((percent / 100) * userCount);
+                                                const rowIndex = parseInt((row as any).id.replace('row-', '')) - 1;
+                                                const generatedInsights = generateInsights(rowIndex >= 0 ? rowIndex : 0, records, showInsightPopoverDescriptionColumn, showInsightPopoverDescriptionColumn ? userName : undefined);
+                                                return (
+                                                  <InsightBadge
+                                                    count={generatedInsights.length}
+                                                    insights={generatedInsights}
+                                                    hideRecommendedAction={hideInsightPopoverRecommendedAction}
+                                                    userName={userName}
+                                                    filledSparkleIcon={filledSparkleIcon}
+                                                  />
+                                                );
+                                              })()}
+                                            </div>
+                                          )}
+                                        </TableCell>
+                                      ) : null}
+                                      {showReviewerLevelColumn ? (
+                                        <TableCell className="py-2 text-sm">
+                                          <a
+                                            href="#"
+                                            className="text-xs font-normal text-foreground border-b border-dashed border-foreground hover:opacity-80"
+                                          >
+                                            L{(row as any).reviewerLevel}
+                                          </a>
+                                        </TableCell>
+                                      ) : null}
+                                      {showSuggestedActionColumn ? (
+                                        <TableCell className="py-2 text-sm">
+                                          <div className="flex items-center gap-2">
+                                            {(() => {
+                                              // Generate insights for this row to determine suggested action
+                                              const match = (row as any).col8?.match(/(\d+)%/);
+                                              const percent = match ? parseInt(match[1]) : 0;
+                                              const userCount = parseInt((row as any).col7?.replace(/,/g, '') || '0') || 0;
+                                              const records = Math.floor((percent / 100) * userCount);
+                                              const rowIndex = parseInt((row as any).id.replace('row-', '')) - 1;
+                                              
+                                              // Generate insights using the same logic
+                                              const insights = generateInsights(rowIndex >= 0 ? rowIndex : 0, records, showInsightPopoverDescriptionColumn, showInsightPopoverDescriptionColumn ? userName : undefined);
+                                              
+                                              // Get risk level from row data
+                                              const riskLevel = (row as any).riskLevel || getRiskLevel(rowIndex >= 0 ? rowIndex : 0);
+                                              const suggestedAction = getSuggestedAction(insights, riskLevel);
+                                              
+                                              // Color coding for suggested actions
+                                              let bgClass: string;
+                                              let borderClass: string;
+                                              let textClass: string;
+                                              let Icon: React.ComponentType<{ className?: string }>;
+                                              if (suggestedAction === 'Certify') {
+                                                bgClass = 'bg-green-100';
+                                                borderClass = hideSuggestedActionBadgeOutline ? 'border-transparent' : 'border-green-300';
+                                                textClass = 'text-green-700';
+                                                Icon = CheckCircle;
+                                              } else if (suggestedAction === 'Revoke') {
+                                                bgClass = 'bg-red-100';
+                                                borderClass = hideSuggestedActionBadgeOutline ? 'border-transparent' : 'border-red-300';
+                                                textClass = 'text-red-700';
+                                                Icon = XCircle;
+                                              } else {
+                                                bgClass = 'bg-yellow-100';
+                                                borderClass = hideSuggestedActionBadgeOutline ? 'border-transparent' : 'border-yellow-300';
+                                                textClass = 'text-yellow-700';
+                                                Icon = Pencil;
+                                              }
+                                              
+                                              return (
+                                                <Badge
+                                                  variant="outline"
+                                                  className={`inline-flex items-center gap-1.5 ${bgClass} ${borderClass} ${textClass} text-xs font-semibold`}
+                                                >
+                                                  <Icon className={`h-3 w-3 ${textClass}`} />
+                                                  {suggestedAction}
+                                                </Badge>
+                                              );
+                                            })()}
+                                            {!hideInsightsColumn && (
+                                              <>
+                                                <Separator orientation="vertical" className="h-4" />
+                                                {showInsightsBadgeOnly ? (
+                                                  (() => {
+                                                    const match = (row as any).col8?.match(/(\d+)%/);
+                                                    const percent = match ? parseInt(match[1]) : 0;
+                                                    const userCount = parseInt((row as any).col7?.replace(/,/g, '') || '0') || 0;
+                                                    const records = Math.floor((percent / 100) * userCount);
+                                                    const rowIndex = parseInt((row as any).id.replace('row-', '')) - 1;
+                                                    const generatedInsights = generateInsights(rowIndex >= 0 ? rowIndex : 0, records, showInsightPopoverDescriptionColumn, showInsightPopoverDescriptionColumn ? userName : undefined);
+                                                    return (
+                                                      <InsightBadge
+                                                        count={generatedInsights.length}
+                                                        insights={generatedInsights}
+                                                        hideRecommendedAction={hideInsightPopoverRecommendedAction}
+                                                        userName={userName}
+                                                        showDescriptionColumn={showInsightPopoverDescriptionColumn}
+                                                        filledSparkleIcon={filledSparkleIcon}
+                                                      />
+                                                    );
+                                                  })()
+                                                ) : (
+                                                  <>
+                                                    <span className="text-sm">{(row as any).col8}</span>
+                                                    <Separator orientation="vertical" className="h-4" />
+                                                    {(() => {
+                                                      const match = (row as any).col8?.match(/(\d+)%/);
+                                                      const percent = match ? parseInt(match[1]) : 0;
+                                                      const userCount = parseInt((row as any).col7?.replace(/,/g, '') || '0') || 0;
+                                                      const records = Math.floor((percent / 100) * userCount);
+                                                      const rowIndex = parseInt((row as any).id.replace('row-', '')) - 1;
+                                                      const generatedInsights = generateInsights(rowIndex >= 0 ? rowIndex : 0, records, showInsightPopoverDescriptionColumn, showInsightPopoverDescriptionColumn ? userName : undefined);
+                                                      return (
+                                                        <InsightBadge
+                                                          count={generatedInsights.length}
+                                                          insights={generatedInsights}
+                                                          hideRecommendedAction={hideInsightPopoverRecommendedAction}
+                                                          userName={userName}
+                                                          showDescriptionColumn={showInsightPopoverDescriptionColumn}
+                                                          filledSparkleIcon={filledSparkleIcon}
+                                                        />
+                                                      );
+                                                    })()}
+                                                  </>
+                                                )}
+                                              </>
+                                            )}
+                                          </div>
+                                        </TableCell>
+                                      ) : null}
+                                      <TableCell className="py-2">
+                                        {customActionColumn ? (
+                                          customActionColumn(row)
+                                        ) : (
+                                          <Button size="sm" className="h-7 text-xs">
+                                            {(row as any).actionLabel}
+                                          </Button>
+                                        )}
+                                      </TableCell>
+                                    </>
+                                  )}
                                 </TableRow>
-                              ))}
+                                );
+                              })}
                             </TableBody>
                             </Table>
                           </div>
                           <div className="flex items-center justify-between border-t bg-background px-4 py-2 text-sm text-muted-foreground">
-                            <span>
-                              {frozenPageStart + 1}-{frozenPageEnd} of {frozenTableRows.length}
-                            </span>
+                                <span>
+                                  {frozenPageStart + 1}-{frozenPageEnd} of {currentDataRows.length}
+                                </span>
                             <div className="flex items-center gap-2">
                               <Button
                                 variant="ghost"

@@ -4,7 +4,7 @@ import { UAREmployeeMode } from './UAREmployeeMode';
 import { UAREmployeeModeV12 } from './UAREmployeeModeV12';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, CheckCircle, XCircle, Pencil } from 'lucide-react';
 import type { Insight } from '@/components/ui/insight-badge';
 import { ALL_INSIGHTS } from '@/components/ui/insight-badge';
 
@@ -56,6 +56,7 @@ export const DashboardV12Story: Story = {
       hideUsersIncludedColumn
       hideViewByFilter={true}
       hideSortByFilter={true}
+      hideButtonGroup={true}
     />
   ),
 };
@@ -77,7 +78,11 @@ export const CertificationOverviewV12Story: Story = {
       sidebarHasTabs
       showRiskScoreColumn={true}
       hideSortByFilter={true}
+      hideViewByFilter={true}
       showReviewerLevelColumn={true}
+      showTwoButtonGroup={true}
+      firstButtonLabel="Review"
+      secondButtonLabel="Reviewer Progress"
     />
   ),
 };
@@ -140,20 +145,76 @@ const getInitials = (firstName: string, lastName: string) => {
   return `${firstName[0]?.toUpperCase() || ''}${lastName[0]?.toUpperCase() || ''}`;
 };
 
+// Helper function to generate user-specific description
+const generateUserSpecificDescription = (insightName: string, index: number, userName?: string): string => {
+  // Extract days from insight name if present
+  const daysMatch = insightName.match(/(\d+)\s*days?/i);
+  const days = daysMatch ? parseInt(daysMatch[1]) : null;
+  
+  // Generate a random number of days if not specified (between 30-120 days)
+  const randomDays = days || (30 + (index % 91));
+  
+  // Convert insight name to user-specific description (without repeating user name)
+  if (insightName.includes('Privileged Accounts Dormant for 90 days')) {
+    return `Has been dormant for ${randomDays} days with privileged access`;
+  } else if (insightName.includes('Privileged Accounts Dormant for 60 days')) {
+    return `Has been dormant for ${randomDays} days with privileged access`;
+  } else if (insightName.includes('External Accounts Dormant for 90 days')) {
+    return `Has been dormant for ${randomDays} days as an external user`;
+  } else if (insightName.includes('External Accounts Dormant for 60 days')) {
+    return `Has been dormant for ${randomDays} days as an external user`;
+  } else if (insightName.includes('Privileged Accounts Dormant')) {
+    return `Has been dormant for ${days || randomDays} days with privileged access`;
+  } else if (insightName.includes('External Accounts Dormant')) {
+    return `Has been dormant for ${days || randomDays} days as an external user`;
+  } else if (insightName.includes('Dormant Privileged Accounts')) {
+    return `Has been dormant for ${randomDays} days with privileged access`;
+  } else if (insightName.includes('Dormant External Accounts')) {
+    return `Has been dormant for ${randomDays} days as an external user`;
+  } else if (insightName.includes('Accounts Dormant for 90 days')) {
+    return `Has been dormant for ${randomDays} days`;
+  } else if (insightName.includes('Accounts Dormant for 60 days')) {
+    return `Has been dormant for ${randomDays} days`;
+  } else if (insightName.includes('Accounts Dormant for')) {
+    return `Has been dormant for ${days || randomDays} days`;
+  } else if (insightName.includes('All Dormant Accounts')) {
+    return `Has been dormant for ${randomDays} days`;
+  } else if (insightName.includes('Orphaned Privileged Accounts')) {
+    return `Has orphaned privileged access - inactive in directory but active in application`;
+  } else if (insightName.includes('Orphaned External Accounts')) {
+    return `Has orphaned external access - inactive in directory but active in application`;
+  } else if (insightName.includes('Orphaned Accounts')) {
+    return `Has orphaned access - inactive in directory but active in application`;
+  } else if (insightName.includes('Privileged Accounts')) {
+    return `Has privileged access that requires review`;
+  } else if (insightName.includes('External Accounts')) {
+    return `Is classified as an external user`;
+  } else if (insightName.includes('Inactive Licensed Accounts')) {
+    return `Has an inactive account but holds an active license`;
+  }
+  
+  // Default: convert to lowercase and make it user-specific
+  return insightName.toLowerCase().replace(/accounts?/gi, 'account');
+};
+
 // Helper function to generate insights (same logic as UAR.tsx)
-const generateInsightsForRow = (index: number, userCount: number): Insight[] => {
+const generateInsightsForRow = (index: number, userCount: number, includeUserDescriptions: boolean = false): Insight[] => {
   const numInsights = Math.min(3 + (index % 13), 15);
   const insights: Insight[] = [];
   
   for (let i = 0; i < numInsights; i++) {
     const insightIndex = (index + i) % ALL_INSIGHTS.length;
     const userCountForInsight = Math.floor(userCount / numInsights) + (i === 0 ? userCount % numInsights : 0);
+    const insight = ALL_INSIGHTS[insightIndex];
     
     insights.push({
-      name: ALL_INSIGHTS[insightIndex].name,
-      description: ALL_INSIGHTS[insightIndex].description,
+      name: insight.name,
+      description: insight.description,
       userCount: userCountForInsight,
-      recommendedAction: ALL_INSIGHTS[insightIndex].recommendedAction,
+      recommendedAction: insight.recommendedAction,
+      ...(includeUserDescriptions && {
+        userSpecificDescription: generateUserSpecificDescription(insight.name, index + i),
+      }),
     });
   }
   
@@ -212,7 +273,7 @@ export const RecordOverviewV11Story: Story = {
   name: 'Record Overview 1.1',
   render: () => (
     <UAREmployeeModeV12
-      titleOverride="Buffer"
+      titleOverride="Slack"
       headerLayout="inline"
       deadlineCardPosition="header"
       sidebarHasTabs={false}
@@ -230,7 +291,7 @@ export const RecordOverviewV11Story: Story = {
       insightsColumnHeader="Insights"
       showInsightsBadgeOnly={true}
       freezeFirstColumn={true}
-      firstColumnWidth={120}
+      firstColumnWidth={200}
       hideViewByFilter={true}
       hideSortByFilter={true}
       initialSortColumn="col1"
@@ -239,18 +300,20 @@ export const RecordOverviewV11Story: Story = {
       sampleUsersForSorting={sampleUsers}
       searchPlaceholder="Search users"
       showStatusColumn={false}
+      groupsTabLabel="Insight Mode"
+      showInsightsFilter={true}
       customFirstColumnCell={(row) => {
         const userIndex = parseInt(row.id.replace('row-', '')) - 1;
         const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
         return (
-          <div className="flex items-center gap-3">
-            <Avatar className="h-8 w-8">
+          <div className="flex items-center gap-3 min-w-0">
+            <Avatar className="h-8 w-8 flex-shrink-0">
               <AvatarFallback className="text-xs">
                 {getInitials(user.firstName, user.lastName)}
               </AvatarFallback>
             </Avatar>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium">
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-sm font-medium truncate" title={`${user.firstName} ${user.lastName}`}>
                 {user.firstName} {user.lastName}
               </span>
             </div>
@@ -297,6 +360,113 @@ export const RecordOverviewV11Story: Story = {
             >
               {recommendedAction === 'Modify' && <Sparkles className="h-3 w-3 mr-1.5" />}
               Modify
+            </Button>
+          </div>
+        );
+      }}
+    />
+  ),
+};
+
+export const RecordOverviewV12Story: Story = {
+  name: 'Record Overview 1.2',
+  render: () => (
+    <UAREmployeeModeV12
+      titleOverride="Slack"
+      headerLayout="inline"
+      deadlineCardPosition="header"
+      sidebarHasTabs={false}
+      showLeftPanel={false}
+      showRadioTabs={true}
+      showRiskScoreColumn={true}
+      firstColumnHeader="User"
+      hideUsersTab={true}
+      hideTabBadges={true}
+      hideOwnerColumn={true}
+      hideProgressColumn={true}
+      hideUsersIncludedColumn={true}
+      riskColumnHeader="Risk"
+      hideRiskGauge={false}
+      insightsColumnHeader="Insights"
+      showInsightsBadgeOnly={true}
+      freezeFirstColumn={true}
+      firstColumnWidth={200}
+      hideViewByFilter={true}
+      hideSortByFilter={true}
+      initialSortColumn="col1"
+      initialSortDirection="asc"
+      customSortByUser={true}
+      sampleUsersForSorting={sampleUsers}
+      searchPlaceholder="Search users"
+      showStatusColumn={false}
+      groupsTabLabel="Insight Mode"
+      showInsightsFilter={true}
+      showSuggestedActionColumn={true}
+      hideInsightPopoverRecommendedAction={true}
+      showInsightPopoverDescriptionColumn={true}
+      hideSuggestedActionBadgeOutline={true}
+      filledSparkleIcon={false}
+      customFirstColumnCell={(row) => {
+        const userIndex = parseInt(row.id.replace('row-', '')) - 1;
+        const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
+        return (
+          <div className="flex items-center gap-3 min-w-0">
+            <Avatar className="h-8 w-8 flex-shrink-0">
+              <AvatarFallback className="text-xs">
+                {getInitials(user.firstName, user.lastName)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-sm font-medium truncate" title={`${user.firstName} ${user.lastName}`}>
+                {user.firstName} {user.lastName}
+              </span>
+            </div>
+          </div>
+        );
+      }}
+      customActionColumn={(row) => {
+        // Generate insights for this row to determine recommended action
+        const match = row.col8?.match(/(\d+)%/);
+        const percent = match ? parseInt(match[1]) : 0;
+        const userCount = parseInt((row.col7 || '0').replace(/,/g, '')) || 0;
+        const records = Math.floor((percent / 100) * userCount);
+        const rowIndex = parseInt(row.id.replace('row-', '')) - 1;
+        
+        // Generate insights using the same logic as UAR.tsx
+        const insights = generateInsightsForRow(rowIndex >= 0 ? rowIndex : 0, records);
+        
+        // Get risk level from row data - normalize to ensure it matches
+        const riskLevel = (row.riskLevel || 'Medium').toString();
+        const recommendedAction = getRecommendedAction(insights, riskLevel);
+        
+        return (
+          <div className="flex gap-2">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="h-7 w-7 p-0 flex items-center justify-center bg-green-100 hover:bg-green-200 border-green-300"
+              title="Certify"
+              aria-label="Certify"
+            >
+              <CheckCircle className={`h-4 w-4 text-green-600`} style={{ opacity: recommendedAction === 'Certify' ? 1 : 0.6 }} />
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="h-7 w-7 p-0 flex items-center justify-center bg-red-100 hover:bg-red-200 border-red-300"
+              title="Revoke"
+              aria-label="Revoke"
+            >
+              <XCircle className={`h-4 w-4 text-red-600`} style={{ opacity: recommendedAction === 'Revoke' ? 1 : 0.6 }} />
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              className="h-7 w-7 p-0 flex items-center justify-center bg-yellow-100 hover:bg-yellow-200 border-yellow-300"
+              title="Modify"
+              aria-label="Modify"
+            >
+              <Pencil className={`h-4 w-4 text-yellow-600`} style={{ opacity: recommendedAction === 'Modify' ? 1 : 0.6 }} />
             </Button>
           </div>
         );

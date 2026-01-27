@@ -40,6 +40,17 @@ interface UAREmployeeModeV12Props {
   showStatusColumn?: boolean;
   customStatusValues?: Array<'Pending' | 'Certified' | 'Modified' | 'Revoked'>;
   showReviewerLevelColumn?: boolean;
+  showTwoButtonGroup?: boolean;
+  firstButtonLabel?: string;
+  secondButtonLabel?: string;
+  groupsTabLabel?: string;
+  showInsightsFilter?: boolean;
+  showSignOffButton?: boolean;
+  showSuggestedActionColumn?: boolean;
+  hideInsightPopoverRecommendedAction?: boolean;
+  showInsightPopoverDescriptionColumn?: boolean;
+  hideSuggestedActionBadgeOutline?: boolean;
+  filledSparkleIcon?: boolean;
 }
 
 export function UAREmployeeModeV12({
@@ -81,6 +92,16 @@ export function UAREmployeeModeV12({
   showStatusColumn,
   customStatusValues,
   showReviewerLevelColumn,
+  showTwoButtonGroup,
+  firstButtonLabel,
+  secondButtonLabel,
+  groupsTabLabel,
+  showInsightsFilter,
+  showSuggestedActionColumn,
+  hideInsightPopoverRecommendedAction,
+  showInsightPopoverDescriptionColumn,
+  hideSuggestedActionBadgeOutline,
+  filledSparkleIcon,
 }: UAREmployeeModeV12Props) {
   return (
     <UAR
@@ -109,7 +130,6 @@ export function UAREmployeeModeV12({
       hideUsersIncludedColumn={hideUsersIncludedColumn}
       showRiskScoreColumn={showRiskScoreColumn}
       firstColumnHeader={firstColumnHeader ?? "Application"}
-      enableExpandedRowDatatable={true}
       hideUsersTab={hideUsersTab}
       hideTabBadges={hideTabBadges}
       hideOwnerColumn={hideOwnerColumn}
@@ -121,7 +141,7 @@ export function UAREmployeeModeV12({
       insightsColumnHeader={insightsColumnHeader}
       showInsightsBadgeOnly={showInsightsBadgeOnly}
       freezeFirstColumn={freezeFirstColumn}
-      firstColumnWidth={firstColumnWidth}
+      firstColumnWidth={firstColumnWidth?.toString()}
       hideViewByFilter={hideViewByFilter}
       hideSortByFilter={hideSortByFilter}
       initialSortColumn={initialSortColumn}
@@ -132,6 +152,16 @@ export function UAREmployeeModeV12({
       showStatusColumn={showStatusColumn}
       customStatusValues={customStatusValues}
       showReviewerLevelColumn={showReviewerLevelColumn}
+      showTwoButtonGroup={showTwoButtonGroup}
+      firstButtonLabel={firstButtonLabel}
+      secondButtonLabel={secondButtonLabel}
+      groupsTabLabel={groupsTabLabel}
+      showInsightsFilter={showInsightsFilter}
+      showSuggestedActionColumn={showSuggestedActionColumn}
+      hideInsightPopoverRecommendedAction={hideInsightPopoverRecommendedAction}
+      showInsightPopoverDescriptionColumn={showInsightPopoverDescriptionColumn}
+      hideSuggestedActionBadgeOutline={hideSuggestedActionBadgeOutline}
+      filledSparkleIcon={filledSparkleIcon}
     />
   );
 }
