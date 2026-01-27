@@ -51,6 +51,13 @@ interface UAREmployeeModeV12Props {
   showInsightPopoverDescriptionColumn?: boolean;
   hideSuggestedActionBadgeOutline?: boolean;
   filledSparkleIcon?: boolean;
+  selectedRows?: Set<string>;
+  onSelectAll?: (checked: boolean) => void;
+  onRowSelect?: (rowId: string, checked: boolean) => void;
+  showPaginationCTA?: boolean;
+  paginationCTALabel?: string;
+  onPaginationCTAClick?: () => void;
+  externalSelectTrigger?: 'select-all' | 'deselect-all' | null;
 }
 
 export function UAREmployeeModeV12({
@@ -97,11 +104,19 @@ export function UAREmployeeModeV12({
   secondButtonLabel,
   groupsTabLabel,
   showInsightsFilter,
+  showSignOffButton,
   showSuggestedActionColumn,
   hideInsightPopoverRecommendedAction,
   showInsightPopoverDescriptionColumn,
   hideSuggestedActionBadgeOutline,
   filledSparkleIcon,
+  selectedRows,
+  onSelectAll,
+  onRowSelect,
+  showPaginationCTA,
+  paginationCTALabel,
+  onPaginationCTAClick,
+  externalSelectTrigger,
 }: UAREmployeeModeV12Props) {
   return (
     <UAR
@@ -157,11 +172,19 @@ export function UAREmployeeModeV12({
       secondButtonLabel={secondButtonLabel}
       groupsTabLabel={groupsTabLabel}
       showInsightsFilter={showInsightsFilter}
+      showSignOffButton={showSignOffButton}
       showSuggestedActionColumn={showSuggestedActionColumn}
       hideInsightPopoverRecommendedAction={hideInsightPopoverRecommendedAction}
       showInsightPopoverDescriptionColumn={showInsightPopoverDescriptionColumn}
       hideSuggestedActionBadgeOutline={hideSuggestedActionBadgeOutline}
       filledSparkleIcon={filledSparkleIcon}
+      selectedRows={selectedRows}
+      onSelectAll={onSelectAll}
+      onRowSelect={onRowSelect}
+      showPaginationCTA={showPaginationCTA}
+      paginationCTALabel={paginationCTALabel}
+      onPaginationCTAClick={onPaginationCTAClick}
+      externalSelectTrigger={externalSelectTrigger}
     />
   );
 }

@@ -85,6 +85,10 @@ type Membership = {
   riskLevel: 'High' | 'Medium' | 'Low';
   records: number;
   actionLabel: string;
+  userEmail: string;
+  employmentStatus: 'Active' | 'Inactive';
+  applicationStatus: string;
+  assignedLicenses: string;
 };
 
 type Group = {
@@ -102,6 +106,22 @@ const appIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   Notion: SiNotion,
 };
 
+// Sample user emails for the table
+const sampleUserEmails = [
+  'jessicapitts@zluri.dev',
+  'brentcalkins@globex.com',
+  'sarahjohnson@acme.com',
+  'michaelchen@techcorp.io',
+  'emilyrodriguez@startup.dev',
+  'davidkim@enterprise.com',
+  'lisawang@cloudcorp.io',
+  'robertmartinez@digital.com',
+  'jennifertaylor@innovate.dev',
+  'christopherlee@modern.io',
+  'amandawhite@future.com',
+  'jamesbrown@nextgen.dev',
+];
+
 const groupsData: Group[] = [
   {
     id: 'domain-users',
@@ -115,6 +135,10 @@ const groupsData: Group[] = [
         riskLevel: 'High',
         records: 125,
         actionLabel: 'Sign-off',
+        userEmail: sampleUserEmails[0],
+        employmentStatus: 'Active',
+        applicationStatus: 'In use',
+        assignedLicenses: '–',
       },
       {
         id: '2',
@@ -123,6 +147,10 @@ const groupsData: Group[] = [
         riskLevel: 'Medium',
         records: 89,
         actionLabel: 'Review',
+        userEmail: sampleUserEmails[1],
+        employmentStatus: 'Active',
+        applicationStatus: 'In use',
+        assignedLicenses: '–',
       },
       {
         id: '3',
@@ -131,6 +159,10 @@ const groupsData: Group[] = [
         riskLevel: 'Low',
         records: 234,
         actionLabel: 'Review',
+        userEmail: sampleUserEmails[2],
+        employmentStatus: 'Active',
+        applicationStatus: 'In use',
+        assignedLicenses: '–',
       },
     ],
   },
@@ -146,6 +178,10 @@ const groupsData: Group[] = [
         riskLevel: 'High',
         records: 456,
         actionLabel: 'Review',
+        userEmail: sampleUserEmails[3],
+        employmentStatus: 'Active',
+        applicationStatus: 'In use',
+        assignedLicenses: '–',
       },
       {
         id: '5',
@@ -154,6 +190,10 @@ const groupsData: Group[] = [
         riskLevel: 'Medium',
         records: 123,
         actionLabel: 'Review',
+        userEmail: sampleUserEmails[4],
+        employmentStatus: 'Active',
+        applicationStatus: 'In use',
+        assignedLicenses: '–',
       },
     ],
   },
@@ -169,6 +209,10 @@ const groupsData: Group[] = [
         riskLevel: 'High',
         records: 789,
         actionLabel: 'Review',
+        userEmail: sampleUserEmails[5],
+        employmentStatus: 'Active',
+        applicationStatus: 'In use',
+        assignedLicenses: '–',
       },
       {
         id: '7',
@@ -177,6 +221,10 @@ const groupsData: Group[] = [
         riskLevel: 'Medium',
         records: 345,
         actionLabel: 'Review',
+        userEmail: sampleUserEmails[6],
+        employmentStatus: 'Active',
+        applicationStatus: 'In use',
+        assignedLicenses: '–',
       },
       {
         id: '8',
@@ -185,6 +233,10 @@ const groupsData: Group[] = [
         riskLevel: 'Low',
         records: 567,
         actionLabel: 'Review',
+        userEmail: sampleUserEmails[7],
+        employmentStatus: 'Active',
+        applicationStatus: 'In use',
+        assignedLicenses: '–',
       },
     ],
   },
@@ -200,6 +252,10 @@ const groupsData: Group[] = [
         riskLevel: 'High',
         records: 234,
         actionLabel: 'Review',
+        userEmail: sampleUserEmails[8],
+        employmentStatus: 'Active',
+        applicationStatus: 'In use',
+        assignedLicenses: '–',
       },
       {
         id: '10',
@@ -208,6 +264,10 @@ const groupsData: Group[] = [
         riskLevel: 'Medium',
         records: 156,
         actionLabel: 'Review',
+        userEmail: sampleUserEmails[9],
+        employmentStatus: 'Active',
+        applicationStatus: 'In use',
+        assignedLicenses: '–',
       },
     ],
   },
@@ -223,6 +283,10 @@ const groupsData: Group[] = [
         riskLevel: 'High',
         records: 678,
         actionLabel: 'Review',
+        userEmail: sampleUserEmails[10],
+        employmentStatus: 'Active',
+        applicationStatus: 'In use',
+        assignedLicenses: '–',
       },
       {
         id: '12',
@@ -231,6 +295,10 @@ const groupsData: Group[] = [
         riskLevel: 'Low',
         records: 234,
         actionLabel: 'Review',
+        userEmail: sampleUserEmails[11],
+        employmentStatus: 'Active',
+        applicationStatus: 'In use',
+        assignedLicenses: '–',
       },
     ],
   },
@@ -349,6 +417,10 @@ function GroupedDataTable() {
                             onCheckedChange={() => selectAllInGroup(group)}
                           />
                         </TableHead>
+                        <TableHead className="px-4 py-2">User Email</TableHead>
+                        <TableHead className="px-4 py-2">User Employment Status</TableHead>
+                        <TableHead className="px-4 py-2">Application User Application Status</TableHead>
+                        <TableHead className="px-4 py-2">Entitlement Assigned Licenses</TableHead>
                         <TableHead className="px-4 py-2">App</TableHead>
                         <TableHead className="px-4 py-2">
                           App Risk Sensitivity
@@ -369,6 +441,22 @@ function GroupedDataTable() {
                                   toggleMembership(membership.id)
                                 }
                               />
+                            </TableCell>
+                            <TableCell className="px-4 py-2">
+                              {membership.userEmail}
+                            </TableCell>
+                            <TableCell className="px-4 py-2">
+                              <Badge
+                                className="bg-green-100 text-green-700 border-green-300 hover:bg-green-200"
+                              >
+                                {membership.employmentStatus}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="px-4 py-2">
+                              {membership.applicationStatus}
+                            </TableCell>
+                            <TableCell className="px-4 py-2">
+                              {membership.assignedLicenses}
                             </TableCell>
                             <TableCell className="px-4 py-2">
                               <div className="flex items-center gap-2">

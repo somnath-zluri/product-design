@@ -16,6 +16,12 @@ import { ButtonGroup } from '@/components/ui/button-group';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -30,6 +36,7 @@ import { Badge } from '@/components/ui/badge';
 import { InsightBadge, type Insight, ALL_INSIGHTS } from '@/components/ui/insight-badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -40,7 +47,7 @@ import {
 } from '@/components/ui/table';
 import * as React from 'react';
 import type { ReactNode } from 'react';
-import { ChevronLeft, Search, ChevronRight, AlignLeft, AlignCenter, AlignRight, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, Star, Sparkles, CheckCircle, XCircle, Pencil } from 'lucide-react';
+import { ChevronLeft, Search, ChevronRight, AlignLeft, AlignCenter, AlignRight, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, Star, Sparkles, CheckCircle, XCircle, Pencil, ChevronDown, UserCog, MessageSquarePlus } from 'lucide-react';
 import { FaApple, FaWindows } from 'react-icons/fa';
 import { SiJira, SiFigma, SiGithub, SiSlack, SiNotion } from 'react-icons/si';
 import { ShieldCheck } from 'lucide-react';
@@ -115,6 +122,13 @@ interface UARProps {
   showInsightPopoverDescriptionColumn?: boolean;
   hideSuggestedActionBadgeOutline?: boolean;
   filledSparkleIcon?: boolean;
+  selectedRows?: Set<string>;
+  onSelectAll?: (checked: boolean) => void;
+  onRowSelect?: (rowId: string, checked: boolean) => void;
+  showPaginationCTA?: boolean;
+  paginationCTALabel?: string;
+  onPaginationCTAClick?: () => void;
+  externalSelectTrigger?: 'select-all' | 'deselect-all' | null;
 }
 
 interface TableData {
@@ -470,6 +484,99 @@ const generateCertificationNames = (count: number): string[] => {
 
 const certificationNames = generateCertificationNames(50);
 
+// Sample user emails for the table
+const sampleUserEmails = [
+  'jessicapitts@zluri.dev',
+  'brentcalkins@globex.com',
+  'sarahjohnson@acme.com',
+  'michaelchen@techcorp.io',
+  'emilyrodriguez@startup.dev',
+  'davidkim@enterprise.com',
+  'lisawang@cloudcorp.io',
+  'robertmartinez@digital.com',
+  'jennifertaylor@innovate.dev',
+  'christopherlee@modern.io',
+  'amandawhite@future.com',
+  'jamesbrown@nextgen.dev',
+  'patriciasmith@tech.io',
+  'williamdavis@cloud.dev',
+  'elizabethwilson@data.com',
+  'thomasmoore@secure.io',
+  'sophiaanderson@next.com',
+  'danielthomas@innovate.io',
+  'oliviamartin@future.dev',
+  'josephjackson@modern.com',
+  'emmataylor@techcorp.io',
+  'charleswhite@startup.io',
+  'isabellaharris@cloud.com',
+  'benjaminclark@digital.io',
+  'avarodriguez@enterprise.dev',
+  'madisonlewis@globex.io',
+  'henrylee@zluri.com',
+  'chloewalker@acme.io',
+  'alexanderhall@tech.dev',
+  'graceallen@cloud.io',
+  'ryanyoung@innovate.com',
+  'victoriaking@modern.dev',
+  'nathanwright@future.io',
+  'hannahlopez@techcorp.com',
+  'ethanhill@startup.io',
+  'scarlettgreen@cloud.dev',
+  'loganadams@digital.com',
+  'zoeybaker@enterprise.io',
+  'aidenrivera@globex.dev',
+  'lilygonzalez@zluri.io',
+  'carternelson@acme.com',
+  'aubreyclark@tech.dev',
+  'jacksonmitchell@cloud.io',
+  'ariaperez@innovate.dev',
+  'lucastroberts@modern.com',
+  'laylacampbell@future.io',
+  'graysonphillips@techcorp.dev',
+  'noraevans@startup.com',
+  'julianturner@cloud.io',
+  'skylartorres@digital.dev',
+  'leoparker@enterprise.com',
+];
+
+// Sample user job titles
+const sampleJobTitles = [
+  'customer support manager',
+  'vp - sales',
+  'vp - partnerships',
+  'product lead',
+  'sales development manager',
+  'business development manager',
+  'business operations manager',
+  'marketing manager',
+  'engineering manager',
+  'product manager',
+  'sales manager',
+  'customer success manager',
+  'account executive',
+  'technical lead',
+  'design lead',
+];
+
+// Sample user account types
+const sampleAccountTypes = ['Employee', 'External'];
+
+// Sample user departments
+const sampleDepartments = [
+  'Success',
+  'Inside Sales',
+  'Strategic Partnerships',
+  'Product Management',
+  'Sales Operations',
+  'Customer Success',
+  'Business Development',
+  'Marketing',
+  'Engineering',
+  'Product',
+  'Sales',
+  'Operations',
+];
+
 const frozenTableRows = Array.from({ length: 50 }, (_, index) => {
   const baseName = appNames[index % appNames.length];
   return {
@@ -501,6 +608,13 @@ const frozenTableRows = Array.from({ length: 50 }, (_, index) => {
     progress: Math.min(100, Math.max(0, (index % 10) * 10 + (index % 3) * 5)),
     actionLabel: 'Review',
     reviewerLevel: Math.floor(Math.random() * 5) + 1, // Random reviewer level from 1 to 5
+    userEmail: sampleUserEmails[index % sampleUserEmails.length],
+    employmentStatus: 'Active' as const,
+    applicationStatus: 'In use',
+    assignedLicenses: '–',
+    userJobTitle: sampleJobTitles[index % sampleJobTitles.length],
+    userAccountType: sampleAccountTypes[index % 2] as 'Employee' | 'External',
+    userDepartment: sampleDepartments[index % sampleDepartments.length],
   };
 })
   .sort((a, b) => a.col5Days - b.col5Days);
@@ -616,6 +730,13 @@ export function UAR({
   showInsightPopoverDescriptionColumn = false,
   hideSuggestedActionBadgeOutline = false,
   filledSparkleIcon = false,
+  selectedRows,
+  onSelectAll,
+  onRowSelect,
+  showPaginationCTA = false,
+  paginationCTALabel = 'Submit',
+  onPaginationCTAClick,
+  externalSelectTrigger,
 }: UARProps) {
   const deadlineCard = showDeadlineCard ? (
     <div className="relative flex flex-col items-start">
@@ -725,10 +846,10 @@ export function UAR({
     return () => clearTimeout(timer);
   }, [checkScrollPosition, showInsightsFilter]);
   
-  // Reset pagination when switching views
+  // Reset pagination when switching views or when insight filters change
   React.useEffect(() => {
     setFrozenPageIndex(0);
-  }, [viewMode]);
+  }, [viewMode, selectedInsightFilters]);
 
   // Sort the data based on current sort column and direction
   const sortedTableRows = React.useMemo(() => {
@@ -824,8 +945,203 @@ export function UAR({
     return 'user-asc'; // Default to user-asc
   };
 
+  // Helper function to convert insight name to ID (same logic as used in the button click handler)
+  const getInsightId = (insightName: string): string => {
+    return insightName.toLowerCase().replace(/\s+/g, '-');
+  };
+
+  // Filter rows based on selected insight filters
+  const filteredTableRows = React.useMemo(() => {
+    // If no insights are selected, return all rows
+    if (selectedInsightFilters.size === 0) {
+      return sortedTableRows;
+    }
+
+    return sortedTableRows.filter((row) => {
+      // Extract row index from id (e.g., "row-1" -> 0)
+      const rowIndex = parseInt(row.id.replace('row-', '')) - 1;
+      if (rowIndex < 0) return false;
+
+      // Get user count from col7 (users included count)
+      const userCountStr = (row as any).col7?.replace(/,/g, '') || '0';
+      const userCount = parseInt(userCountStr) || 0;
+
+      // Get insights percent from col8 (e.g., "45% users")
+      const match = (row as any).col8?.match(/(\d+)%/);
+      const percent = match ? parseInt(match[1]) : 0;
+      const records = Math.floor((percent / 100) * userCount);
+
+      // Generate insights for this row
+      const generatedInsights = generateInsights(rowIndex, records, false);
+
+      // Get the set of insight IDs for this row
+      const rowInsightIds = new Set(
+        generatedInsights.map((insight) => getInsightId(insight.name))
+      );
+
+      // Check if ALL selected insight filters are present in this row (intersection/AND logic)
+      return Array.from(selectedInsightFilters).every((selectedInsightId) =>
+        rowInsightIds.has(selectedInsightId)
+      );
+    });
+  }, [sortedTableRows, selectedInsightFilters]);
+
+  // Calculate actual counts for each insight based on table data
+  const insightCounts = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    
+    // Initialize all insights with 0
+    ALL_INSIGHTS.forEach((insight) => {
+      const insightId = getInsightId(insight.name);
+      counts[insightId] = 0;
+    });
+
+    // Count rows that have each insight
+    sortedTableRows.forEach((row) => {
+      // Extract row index from id (e.g., "row-1" -> 0)
+      const rowIndex = parseInt(row.id.replace('row-', '')) - 1;
+      if (rowIndex < 0) return;
+
+      // Get user count from col7 (users included count)
+      const userCountStr = (row as any).col7?.replace(/,/g, '') || '0';
+      const userCount = parseInt(userCountStr) || 0;
+
+      // Get insights percent from col8 (e.g., "45% users")
+      const match = (row as any).col8?.match(/(\d+)%/);
+      const percent = match ? parseInt(match[1]) : 0;
+      const records = Math.floor((percent / 100) * userCount);
+
+      // Generate insights for this row
+      const generatedInsights = generateInsights(rowIndex, records, false);
+
+      // Count occurrences of each insight
+      generatedInsights.forEach((insight) => {
+        const insightId = getInsightId(insight.name);
+        if (counts.hasOwnProperty(insightId)) {
+          counts[insightId]++;
+        }
+      });
+    });
+
+    return counts;
+  }, [sortedTableRows]);
+
+  // Calculate bulk action recommendation based on selected insights
+  const bulkActionRecommendation = React.useMemo(() => {
+    if (selectedInsightFilters.size === 0) {
+      return null;
+    }
+
+    // Get the selected insights from ALL_INSIGHTS
+    const selectedInsights = ALL_INSIGHTS.filter((insight) => {
+      const insightId = getInsightId(insight.name);
+      return selectedInsightFilters.has(insightId);
+    });
+
+    if (selectedInsights.length === 0) {
+      return null;
+    }
+
+    // Count recommended actions from selected insights
+    const revokeCount = selectedInsights.filter(
+      (insight) => insight.recommendedAction === 'Revoke'
+    ).length;
+    const modifyCount = selectedInsights.filter(
+      (insight) => insight.recommendedAction === 'Modify'
+    ).length;
+    const certifyCount = selectedInsights.filter(
+      (insight) => insight.recommendedAction === 'Certify'
+    ).length;
+
+    const hasRevoke = revokeCount > 0;
+    const hasModify = modifyCount > 0;
+    const hasCertify = certifyCount > 0;
+
+    // Prioritize Revoke if present (most critical action)
+    if (hasRevoke) {
+      return 'Revoke';
+    }
+
+    // If there are Modify recommendations, use Modify
+    if (hasModify) {
+      return 'Modify';
+    }
+
+    // Default to Certify
+    return 'Certify';
+  }, [selectedInsightFilters]);
+
+  // Automatically select rows when insight filters are applied
+  const prevSelectedFiltersRef = React.useRef<string>('');
+  
+  React.useEffect(() => {
+    if (!onRowSelect || viewMode === 'reviewer-progress') {
+      return;
+    }
+
+    // Get all row IDs from filtered rows
+    const filteredRowIdsArray = filteredTableRows.map((row) => row.id);
+    const filteredRowIds = new Set(filteredRowIdsArray);
+    const selectedFiltersString = Array.from(selectedInsightFilters).sort().join(',');
+    
+    // Check if filters have changed
+    if (selectedFiltersString === prevSelectedFiltersRef.current) {
+      return; // No change, skip update
+    }
+    
+    // Update the ref
+    prevSelectedFiltersRef.current = selectedFiltersString;
+
+    // If filters are applied, select ALL filtered rows
+    if (selectedInsightFilters.size > 0 && filteredRowIdsArray.length > 0) {
+      // Select all filtered rows immediately
+      filteredRowIdsArray.forEach((rowId) => {
+        onRowSelect(rowId, true);
+      });
+      
+      // Unselect rows that are not in the filtered set
+      const allTableRowIds = new Set(sortedTableRows.map((row) => row.id));
+      if (selectedRows) {
+        selectedRows.forEach((rowId) => {
+          if (!filteredRowIds.has(rowId) && allTableRowIds.has(rowId)) {
+            onRowSelect(rowId, false);
+          }
+        });
+      }
+    } else if (selectedInsightFilters.size === 0) {
+      // When all filters are deselected, unselect all rows
+      if (selectedRows && selectedRows.size > 0) {
+        selectedRows.forEach((rowId) => {
+          onRowSelect(rowId, false);
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedInsightFilters, filteredTableRows, onRowSelect, viewMode]);
+
+  // Handle external selection trigger from outside the component
+  const prevExternalTriggerRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!externalSelectTrigger || !onSelectAll) {
+      return;
+    }
+
+    // Only trigger if the value has changed
+    if (externalSelectTrigger === prevExternalTriggerRef.current) {
+      return;
+    }
+
+    prevExternalTriggerRef.current = externalSelectTrigger;
+
+    if (externalSelectTrigger === 'select-all') {
+      onSelectAll(true);
+    } else if (externalSelectTrigger === 'deselect-all') {
+      onSelectAll(false);
+    }
+  }, [externalSelectTrigger, onSelectAll]);
+
   // Determine which data set to use based on view mode
-  const currentDataRows = viewMode === 'reviewer-progress' ? reviewerProgressRows : sortedTableRows;
+  const currentDataRows = viewMode === 'reviewer-progress' ? reviewerProgressRows : filteredTableRows;
   
   const frozenPageCount = Math.ceil(currentDataRows.length / frozenPageSize);
   const frozenPageStart = frozenPageIndex * frozenPageSize;
@@ -1312,7 +1628,7 @@ export function UAR({
                       )
                     ) : null}
 
-                    <div className="flex flex-1 min-h-0 flex-col px-4 py-4">
+                    <div className="flex flex-1 min-h-0 flex-col px-4 pt-0 pb-4">
                       <Tabs defaultValue="applications">
                         {showRadioCard ? (
                           <TabsContent value="applications">
@@ -1505,75 +1821,192 @@ export function UAR({
                         ) : null}
                         </Tabs>
                         {showInsightsFilter && (
-                          <div className="mt-4 flex h-fit items-center gap-3 px-4 py-0">
-                            <span className="text-sm font-medium shrink-0 flex items-center gap-1.5">
-                              <Sparkles className="h-4 w-4" />
-                              Insights
-                            </span>
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <button
-                                onClick={() => scrollInsights('left')}
-                                disabled={!canScrollLeft}
-                                className={cn(
-                                  "shrink-0 h-8 w-8 flex items-center justify-center rounded-full border transition-colors",
-                                  canScrollLeft
-                                    ? "bg-background hover:bg-muted cursor-pointer border-border"
-                                    : "bg-muted cursor-not-allowed border-muted opacity-50"
-                                )}
-                                aria-label="Scroll left"
-                              >
-                                <ChevronLeft className={cn("h-4 w-4", !canScrollLeft && "text-muted-foreground")} />
-                              </button>
-                              <div
-                                ref={insightsScrollRef}
-                                onWheel={handleWheel}
-                                className="flex items-center gap-2 overflow-x-auto flex-1 min-w-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                              >
-                                {ALL_INSIGHTS.map((insight, index) => {
-                                  const insightId = insight.name.toLowerCase().replace(/\s+/g, '-');
-                                  const isSelected = selectedInsightFilters.has(insightId);
-                                  // Placeholder count - can be calculated from actual data later
-                                  // Using index-based calculation for stable counts
-                                  const count = ((index * 7) % 50) + 1;
-                                  
-                                  return (
-                                    <button
-                                      key={insightId}
-                                      onClick={() => {
-                                        const newSelected = new Set(selectedInsightFilters);
-                                        if (isSelected) {
-                                          newSelected.delete(insightId);
-                                        } else {
-                                          newSelected.add(insightId);
-                                        }
-                                        setSelectedInsightFilters(newSelected);
-                                      }}
+                          <>
+                            <div className="mt-4 flex h-fit items-center gap-3 px-4 py-0">
+                              <span className="text-sm font-medium shrink-0 flex items-center gap-1.5">
+                                <Sparkles className="h-4 w-4" />
+                                Insights
+                              </span>
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <button
+                                  onClick={() => scrollInsights('left')}
+                                  disabled={!canScrollLeft}
+                                  className={cn(
+                                    "shrink-0 h-8 w-8 flex items-center justify-center rounded-full border transition-colors",
+                                    canScrollLeft
+                                      ? "bg-background hover:bg-muted cursor-pointer border-border"
+                                      : "bg-muted cursor-not-allowed border-muted opacity-50"
+                                  )}
+                                  aria-label="Scroll left"
+                                >
+                                  <ChevronLeft className={cn("h-4 w-4", !canScrollLeft && "text-muted-foreground")} />
+                                </button>
+                                <div
+                                  ref={insightsScrollRef}
+                                  onWheel={handleWheel}
+                                  className="flex items-center gap-2 overflow-x-auto flex-1 min-w-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                                >
+                                  {ALL_INSIGHTS.map((insight, index) => {
+                                    const insightId = insight.name.toLowerCase().replace(/\s+/g, '-');
+                                    const isSelected = selectedInsightFilters.has(insightId);
+                                    // Get actual count from calculated insight counts
+                                    const count = insightCounts[insightId] || 0;
+                                    
+                                    return (
+                                      <button
+                                        key={insightId}
+                                        onClick={() => {
+                                          const newSelected = new Set(selectedInsightFilters);
+                                          if (isSelected) {
+                                            newSelected.delete(insightId);
+                                          } else {
+                                            newSelected.add(insightId);
+                                          }
+                                          setSelectedInsightFilters(newSelected);
+                                        }}
+                                        className={cn(
+                                          "rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer shrink-0 whitespace-nowrap",
+                                          isSelected
+                                            ? "bg-primary text-primary-foreground border-primary"
+                                            : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                                        )}
+                                      >
+                                        {count} {insight.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                <button
+                                  onClick={() => scrollInsights('right')}
+                                  disabled={!canScrollRight}
+                                  className={cn(
+                                    "shrink-0 h-8 w-8 flex items-center justify-center rounded-full border transition-colors",
+                                    canScrollRight
+                                      ? "bg-background hover:bg-muted cursor-pointer border-border"
+                                      : "bg-muted cursor-not-allowed border-muted opacity-50"
+                                  )}
+                                  aria-label="Scroll right"
+                                >
+                                  <ChevronRight className={cn("h-4 w-4", !canScrollRight && "text-muted-foreground")} />
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                        {/* Option 2: Banner/Alert Above Table - Multicolor Gradient Style */}
+                        {bulkActionRecommendation && (
+                          <div className="mt-4 mx-4 mb-2">
+                            <div className="relative rounded-lg p-[3px]"
+                              style={{
+                                background: 'conic-gradient(from 0deg, #4f46e5, #7c3aed, #d946ef, #ec4899, #f43f5e, #f97316, #fbbf24, #4f46e5)',
+                              }}
+                            >
+                              <div className="flex flex-col gap-3 py-3 px-4 rounded-lg bg-background shadow-sm relative overflow-hidden">
+                              <div className="flex items-start gap-3 relative z-10">
+                                <Sparkles 
+                                  className="h-10 w-10 flex-shrink-0"
+                                  style={{
+                                    fill: 'url(#sparkle-gradient)',
+                                    color: 'transparent',
+                                  }}
+                                />
+                                <svg width="0" height="0" className="absolute">
+                                  <defs>
+                                    <linearGradient id="sparkle-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                      <stop offset="0%" stopColor="#a855f7" />
+                                      <stop offset="30%" stopColor="#ec4899" />
+                                      <stop offset="60%" stopColor="#f97316" />
+                                      <stop offset="100%" stopColor="#fb923c" />
+                                    </linearGradient>
+                                  </defs>
+                                </svg>
+                                <div className="flex flex-col flex-1 min-w-0">
+                                  <span className="text-base font-semibold">
+                                    Recommended Action: {bulkActionRecommendation === 'Revoke' ? 'Revoke Access' : bulkActionRecommendation === 'Modify' ? 'Modify Access' : 'Certify Access'}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground mt-0.5">
+                                    Found {filteredTableRows.length} {filteredTableRows.length === 1 ? 'record' : 'records'} with all selected insights
+                                  </span>
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <Button
+                                      size="sm"
                                       className={cn(
-                                        "rounded-full border px-3 py-1 text-xs font-medium transition-colors cursor-pointer shrink-0 whitespace-nowrap",
-                                        isSelected
-                                          ? "bg-primary text-primary-foreground border-primary"
-                                          : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                                        "h-8 text-xs font-medium flex items-center gap-1.5",
+                                        bulkActionRecommendation === 'Revoke' &&
+                                          "bg-red-600 text-white hover:bg-red-700",
+                                        bulkActionRecommendation === 'Modify' &&
+                                          "bg-yellow-600 text-white hover:bg-yellow-700",
+                                        bulkActionRecommendation === 'Certify' &&
+                                          "bg-green-600 text-white hover:bg-green-700"
                                       )}
                                     >
-                                      {count} {insight.name}
-                                    </button>
-                                  );
-                                })}
+                                      {bulkActionRecommendation === 'Modify' && (
+                                        <Pencil className="h-3.5 w-3.5" />
+                                      )}
+                                      {bulkActionRecommendation === 'Certify' && (
+                                        <CheckCircle className="h-3.5 w-3.5" />
+                                      )}
+                                      {bulkActionRecommendation === 'Revoke' ? `Revoke All (${filteredTableRows.length})` : bulkActionRecommendation === 'Modify' ? `Modify All (${filteredTableRows.length})` : `Certify All (${filteredTableRows.length})`}
+                                    </Button>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          size="sm"
+                                          variant="secondary"
+                                          className="h-8 text-xs font-medium bg-[#616161]/10 text-[#616161] hover:bg-[#616161]/20 border-0"
+                                        >
+                                          More Actions
+                                          <ChevronDown className="h-3.5 w-3.5 ml-1.5" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="start">
+                                        <DropdownMenuItem
+                                          className="flex items-center gap-2"
+                                          onClick={() => {
+                                            // Handle Modify All action
+                                            console.log('Modify All clicked');
+                                          }}
+                                        >
+                                          <Pencil className="h-3.5 w-3.5 text-yellow-600" />
+                                          Modify All
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          className="flex items-center gap-2"
+                                          onClick={() => {
+                                            // Handle Certify All action
+                                            console.log('Certify All clicked');
+                                          }}
+                                        >
+                                          <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                                          Certify All
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          className="flex items-center gap-2"
+                                          onClick={() => {
+                                            // Handle Reassign All action
+                                            console.log('Reassign All clicked');
+                                          }}
+                                        >
+                                          <UserCog className="h-3.5 w-3.5 text-blue-600" />
+                                          Reassign all
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          className="flex items-center gap-2"
+                                          onClick={() => {
+                                            // Handle Add comment action
+                                            console.log('Add comment clicked');
+                                          }}
+                                        >
+                                          <MessageSquarePlus className="h-3.5 w-3.5 text-purple-600" />
+                                          Add comment
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+                                </div>
                               </div>
-                              <button
-                                onClick={() => scrollInsights('right')}
-                                disabled={!canScrollRight}
-                                className={cn(
-                                  "shrink-0 h-8 w-8 flex items-center justify-center rounded-full border transition-colors",
-                                  canScrollRight
-                                    ? "bg-background hover:bg-muted cursor-pointer border-border"
-                                    : "bg-muted cursor-not-allowed border-muted opacity-50"
-                                )}
-                                aria-label="Scroll right"
-                              >
-                                <ChevronRight className={cn("h-4 w-4", !canScrollRight && "text-muted-foreground")} />
-                              </button>
                             </div>
+                          </div>
                           </div>
                         )}
                         <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
@@ -1682,6 +2115,18 @@ export function UAR({
                               </Button>
                             </div>
                             <div className="flex flex-wrap items-center gap-3">
+                              {showPaginationCTA && (
+                                <>
+                                  <Button 
+                                    variant="default" 
+                                    size="sm"
+                                    onClick={onPaginationCTAClick}
+                                  >
+                                    {paginationCTALabel}
+                                  </Button>
+                                  <Separator orientation="vertical" className="h-6" />
+                                </>
+                              )}
                               {showSignOffButton && (
                                 <>
                                   <Button variant="default" size="sm">
@@ -1690,32 +2135,34 @@ export function UAR({
                                   <Separator orientation="vertical" className="h-6" />
                                 </>
                               )}
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-3 text-sm text-muted-foreground">
                                 <span>
                                   {frozenPageStart + 1}-{frozenPageEnd} of {currentDataRows.length}
                                 </span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setFrozenPageIndex((prev) => Math.max(0, prev - 1))}
-                                  disabled={frozenPageIndex === 0}
-                                  className="h-9 w-9 p-0"
-                                >
-                                  <ChevronLeft className="h-4 w-4" />
-                                  <span className="sr-only">Previous</span>
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    setFrozenPageIndex((prev) => Math.min(frozenPageCount - 1, prev + 1))
-                                  }
-                                  disabled={frozenPageIndex >= frozenPageCount - 1}
-                                  className="h-9 w-9 p-0"
-                                >
-                                  <ChevronRight className="h-4 w-4" />
-                                  <span className="sr-only">Next</span>
-                                </Button>
+                                <div className="flex items-center">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setFrozenPageIndex((prev) => Math.max(0, prev - 1))}
+                                    disabled={frozenPageIndex === 0}
+                                    className="h-9 w-9 p-0 rounded-r-none"
+                                  >
+                                    <ChevronLeft className="h-4 w-4" />
+                                    <span className="sr-only">Previous</span>
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      setFrozenPageIndex((prev) => Math.min(frozenPageCount - 1, prev + 1))
+                                    }
+                                    disabled={frozenPageIndex >= frozenPageCount - 1}
+                                    className="h-9 w-9 p-0 rounded-l-none border-l-0"
+                                  >
+                                    <ChevronRight className="h-4 w-4" />
+                                    <span className="sr-only">Next</span>
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1741,23 +2188,55 @@ export function UAR({
                                 ) : (
                                   <>
                                     <TableHead 
-                                      className={`py-2 text-xs bg-muted ${firstColumnWidth ? '' : 'w-[360px]'} cursor-pointer select-none transition-colors hover:bg-muted/80 group ${freezeFirstColumn ? 'sticky left-0 z-20' : ''}`}
-                                      onClick={() => handleSort('col1')}
+                                      className={`py-2 text-xs bg-muted ${firstColumnWidth ? '' : 'w-[360px]'} ${freezeFirstColumn ? 'sticky left-0 z-20 border-r border-muted-foreground/20' : ''}`}
                                       style={firstColumnWidth ? { width: `${firstColumnWidth}px` } : undefined}
                                     >
                                       <div className="flex items-center gap-2">
-                                        <span>{firstColumnHeader ?? 'Certification'}</span>
-                                        {sortColumn === 'col1' ? (
-                                          sortDirection === 'asc' ? (
-                                            <ArrowUp className="h-3 w-3 text-primary" />
+                                        {firstColumnHeader === 'User' && selectedRows !== undefined && onSelectAll ? (
+                                          <Checkbox
+                                            checked={frozenPageRows.length > 0 && frozenPageRows.every((row) => selectedRows.has(row.id))}
+                                            onCheckedChange={(checked) => {
+                                              if (onSelectAll) {
+                                                onSelectAll(checked === true);
+                                              }
+                                            }}
+                                            onClick={(e) => e.stopPropagation()}
+                                          />
+                                        ) : null}
+                                        <div 
+                                          className="flex items-center gap-2 cursor-pointer select-none transition-colors hover:bg-muted/80 group flex-1"
+                                          onClick={() => handleSort('col1')}
+                                        >
+                                          <span>{firstColumnHeader ?? 'Certification'}</span>
+                                          {sortColumn === 'col1' ? (
+                                            sortDirection === 'asc' ? (
+                                              <ArrowUp className="h-3 w-3 text-primary" />
+                                            ) : (
+                                              <ArrowDown className="h-3 w-3 text-primary" />
+                                            )
                                           ) : (
-                                            <ArrowDown className="h-3 w-3 text-primary" />
-                                          )
-                                        ) : (
-                                          <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
-                                        )}
+                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                          )}
+                                        </div>
                                       </div>
                                     </TableHead>
+                                    {showRiskScoreColumn && firstColumnHeader === 'User' ? (
+                                      <TableHead className="py-2 text-xs bg-muted">{riskColumnHeader ?? 'App Risk Sensitivity'}</TableHead>
+                                    ) : null}
+                                    {showSuggestedActionColumn && firstColumnHeader === 'User' ? (
+                                      <TableHead className="py-2 text-xs bg-muted">Suggested Action</TableHead>
+                                    ) : null}
+                                    {firstColumnHeader === 'User' ? (
+                                      <>
+                                        <TableHead className="py-2 text-xs bg-muted">Email</TableHead>
+                                        <TableHead className="py-2 text-xs bg-muted">Employment Status</TableHead>
+                                        <TableHead className="py-2 text-xs bg-muted">User Application Status</TableHead>
+                                        <TableHead className="py-2 text-xs bg-muted">Assigned Licences</TableHead>
+                                        <TableHead className="py-2 text-xs bg-muted">Job Title</TableHead>
+                                        <TableHead className="py-2 text-xs bg-muted">Account Type</TableHead>
+                                        <TableHead className="py-2 text-xs bg-muted">Department</TableHead>
+                                      </>
+                                    ) : null}
                                     {!hideOwnerColumn ? (
                                   <TableHead 
                                     className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
@@ -1815,7 +2294,7 @@ export function UAR({
                                         </div>
                                       </TableHead>
                                     ) : null}
-                                    {showRiskScoreColumn ? (
+                                    {showRiskScoreColumn && firstColumnHeader !== 'User' ? (
                                       <TableHead className="py-2 text-xs bg-muted">{riskColumnHeader ?? 'App Risk Sensitivity'}</TableHead>
                                     ) : null}
                                     {showStatusColumn ? (
@@ -1830,10 +2309,12 @@ export function UAR({
                                     {showReviewerLevelColumn ? (
                                       <TableHead className="py-2 text-xs bg-muted">Your Review Level</TableHead>
                                     ) : null}
-                                    {showSuggestedActionColumn ? (
+                                    {showSuggestedActionColumn && firstColumnHeader !== 'User' ? (
                                       <TableHead className="py-2 text-xs bg-muted">Suggested Action</TableHead>
                                     ) : null}
-                                    <TableHead className="py-2 text-xs bg-muted">Action</TableHead>
+                                    <TableHead className={`py-2 text-xs bg-muted ${firstColumnHeader === 'User' ? 'sticky right-0 z-20 border-l border-muted-foreground/20' : ''}`}>
+                                      Action
+                                    </TableHead>
                                   </>
                                 )}
                               </TableRow>
@@ -1973,7 +2454,7 @@ export function UAR({
                                   ) : (
                                     <>
                                       <TableCell 
-                                        className={`py-2 text-sm ${firstColumnWidth ? '' : 'w-[360px]'} ${freezeFirstColumn ? 'sticky left-0 z-10 bg-background' : ''}`}
+                                        className={`py-2 text-sm ${firstColumnWidth ? '' : 'w-[360px]'} ${freezeFirstColumn ? 'sticky left-0 z-10 bg-background border-r border-muted-foreground/20' : ''}`}
                                         style={firstColumnWidth ? { width: `${firstColumnWidth}px` } : undefined}
                                       >
                                         {customFirstColumnCell ? (
@@ -1984,6 +2465,153 @@ export function UAR({
                                           </span>
                                         )}
                                       </TableCell>
+                                      {showRiskScoreColumn && firstColumnHeader === 'User' ? (
+                                        <TableCell className="py-2 text-sm">
+                                          {hideRiskGauge ? (
+                                            <span className="text-sm">{(row as any).riskLevel}</span>
+                                          ) : (
+                                            renderRiskGauge((row as any).riskLevel as 'High' | 'Medium' | 'Low', (row as any).riskScore)
+                                          )}
+                                        </TableCell>
+                                      ) : null}
+                                      {showSuggestedActionColumn && firstColumnHeader === 'User' ? (
+                                        <TableCell className="py-2 text-sm">
+                                          <div className="flex items-center gap-2">
+                                            {(() => {
+                                              // Generate insights for this row to determine suggested action
+                                              const match = (row as any).col8?.match(/(\d+)%/);
+                                              const percent = match ? parseInt(match[1]) : 0;
+                                              const userCount = parseInt((row as any).col7?.replace(/,/g, '') || '0') || 0;
+                                              const records = Math.floor((percent / 100) * userCount);
+                                              const rowIndex = parseInt((row as any).id.replace('row-', '')) - 1;
+                                              
+                                              // Generate insights using the same logic
+                                              const insights = generateInsights(rowIndex >= 0 ? rowIndex : 0, records, showInsightPopoverDescriptionColumn, showInsightPopoverDescriptionColumn ? userName : undefined);
+                                              
+                                              // Get risk level from row data
+                                              const riskLevel = (row as any).riskLevel || getRiskLevel(rowIndex >= 0 ? rowIndex : 0);
+                                              const suggestedAction = getSuggestedAction(insights, riskLevel);
+                                              
+                                              // Color coding for suggested actions
+                                              let bgClass: string;
+                                              let borderClass: string;
+                                              let textClass: string;
+                                              let Icon: React.ComponentType<{ className?: string }>;
+                                              if (suggestedAction === 'Certify') {
+                                                bgClass = 'bg-green-100';
+                                                borderClass = hideSuggestedActionBadgeOutline ? 'border-transparent' : 'border-green-300';
+                                                textClass = 'text-green-700';
+                                                Icon = CheckCircle;
+                                              } else if (suggestedAction === 'Revoke') {
+                                                bgClass = 'bg-red-100';
+                                                borderClass = hideSuggestedActionBadgeOutline ? 'border-transparent' : 'border-red-300';
+                                                textClass = 'text-red-700';
+                                                Icon = XCircle;
+                                              } else {
+                                                bgClass = 'bg-yellow-100';
+                                                borderClass = hideSuggestedActionBadgeOutline ? 'border-transparent' : 'border-yellow-300';
+                                                textClass = 'text-yellow-700';
+                                                Icon = Pencil;
+                                              }
+                                              
+                                              return (
+                                                <Badge
+                                                  variant="outline"
+                                                  className={`inline-flex items-center gap-1.5 ${bgClass} ${borderClass} ${textClass} text-xs font-semibold`}
+                                                >
+                                                  <Icon className={`h-3 w-3 ${textClass}`} />
+                                                  {suggestedAction}
+                                                </Badge>
+                                              );
+                                            })()}
+                                            {!hideInsightsColumn && (
+                                              <>
+                                                <Separator orientation="vertical" className="h-4" />
+                                                {showInsightsBadgeOnly ? (
+                                                  (() => {
+                                                    const match = (row as any).col8?.match(/(\d+)%/);
+                                                    const percent = match ? parseInt(match[1]) : 0;
+                                                    const userCount = parseInt((row as any).col7?.replace(/,/g, '') || '0') || 0;
+                                                    const records = Math.floor((percent / 100) * userCount);
+                                                    const rowIndex = parseInt((row as any).id.replace('row-', '')) - 1;
+                                                    const generatedInsights = generateInsights(rowIndex >= 0 ? rowIndex : 0, records, showInsightPopoverDescriptionColumn, showInsightPopoverDescriptionColumn ? userName : undefined);
+                                                    return (
+                                                      <InsightBadge
+                                                        count={generatedInsights.length}
+                                                        insights={generatedInsights}
+                                                        hideRecommendedAction={hideInsightPopoverRecommendedAction}
+                                                        userName={userName}
+                                                        showDescriptionColumn={showInsightPopoverDescriptionColumn}
+                                                        filledSparkleIcon={filledSparkleIcon}
+                                                      />
+                                                    );
+                                                  })()
+                                                ) : (
+                                                  <>
+                                                    <span className="text-sm">{(row as any).col8}</span>
+                                                    <Separator orientation="vertical" className="h-4" />
+                                                    {(() => {
+                                                      const match = (row as any).col8?.match(/(\d+)%/);
+                                                      const percent = match ? parseInt(match[1]) : 0;
+                                                      const userCount = parseInt((row as any).col7?.replace(/,/g, '') || '0') || 0;
+                                                      const records = Math.floor((percent / 100) * userCount);
+                                                      const rowIndex = parseInt((row as any).id.replace('row-', '')) - 1;
+                                                      const generatedInsights = generateInsights(rowIndex >= 0 ? rowIndex : 0, records, showInsightPopoverDescriptionColumn, showInsightPopoverDescriptionColumn ? userName : undefined);
+                                                      return (
+                                                        <InsightBadge
+                                                          count={generatedInsights.length}
+                                                          insights={generatedInsights}
+                                                          hideRecommendedAction={hideInsightPopoverRecommendedAction}
+                                                          userName={userName}
+                                                          showDescriptionColumn={showInsightPopoverDescriptionColumn}
+                                                          filledSparkleIcon={filledSparkleIcon}
+                                                        />
+                                                      );
+                                                    })()}
+                                                  </>
+                                                )}
+                                              </>
+                                            )}
+                                          </div>
+                                        </TableCell>
+                                      ) : null}
+                                      {firstColumnHeader === 'User' ? (
+                                        <>
+                                          <TableCell className="py-2 text-sm">
+                                            {(row as any).userEmail}
+                                          </TableCell>
+                                          <TableCell className="py-2 text-sm">
+                                            <Badge
+                                              className="bg-green-100 text-green-700 border-transparent hover:bg-green-200"
+                                            >
+                                              {(row as any).employmentStatus}
+                                            </Badge>
+                                          </TableCell>
+                                          <TableCell className="py-2 text-sm">
+                                            {(row as any).applicationStatus}
+                                          </TableCell>
+                                          <TableCell className="py-2 text-sm">
+                                            {(row as any).assignedLicenses}
+                                          </TableCell>
+                                          <TableCell className="py-2 text-sm">
+                                            {(() => {
+                                              const jobTitle = (row as any).userJobTitle || '';
+                                              // Convert to title case: capitalize first letter of each word
+                                              return jobTitle
+                                                .toLowerCase()
+                                                .split(' ')
+                                                .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+                                                .join(' ');
+                                            })()}
+                                          </TableCell>
+                                          <TableCell className="py-2 text-sm">
+                                            {(row as any).userAccountType}
+                                          </TableCell>
+                                          <TableCell className="py-2 text-sm">
+                                            {(row as any).userDepartment}
+                                          </TableCell>
+                                        </>
+                                      ) : null}
                                       {!hideOwnerColumn ? (
                                         <TableCell className="py-2 text-sm">
                                           <div className="flex items-center gap-2">
@@ -2041,7 +2669,7 @@ export function UAR({
                                           </div>
                                         </TableCell>
                                       ) : null}
-                                      {showRiskScoreColumn ? (
+                                      {showRiskScoreColumn && firstColumnHeader !== 'User' ? (
                                         <TableCell className="py-2 text-sm">
                                           {hideRiskGauge ? (
                                             <span className="text-sm">{(row as any).riskLevel}</span>
@@ -2159,7 +2787,7 @@ export function UAR({
                                           </a>
                                         </TableCell>
                                       ) : null}
-                                      {showSuggestedActionColumn ? (
+                                      {showSuggestedActionColumn && firstColumnHeader !== 'User' ? (
                                         <TableCell className="py-2 text-sm">
                                           <div className="flex items-center gap-2">
                                             {(() => {
@@ -2260,7 +2888,7 @@ export function UAR({
                                           </div>
                                         </TableCell>
                                       ) : null}
-                                      <TableCell className="py-2">
+                                      <TableCell className={`py-2 ${firstColumnHeader === 'User' ? 'sticky right-0 z-10 bg-background border-l border-muted-foreground/20' : ''}`}>
                                         {customActionColumn ? (
                                           customActionColumn(row)
                                         ) : (

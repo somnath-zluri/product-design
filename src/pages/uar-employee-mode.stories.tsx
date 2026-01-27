@@ -1,12 +1,31 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { INITIAL_VIEWPORTS } from '@storybook/addon-viewport';
+import { useState, useEffect, useRef } from 'react';
 import { UAREmployeeMode } from './UAREmployeeMode';
 import { UAREmployeeModeV12 } from './UAREmployeeModeV12';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Sparkles, CheckCircle, XCircle, Pencil } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Sparkles, CheckCircle, XCircle, Pencil, MoreVertical, Copy } from 'lucide-react';
 import type { Insight } from '@/components/ui/insight-badge';
 import { ALL_INSIGHTS } from '@/components/ui/insight-badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const meta = {
   title: 'Pages/UAR - Employee Mode',
@@ -271,56 +290,182 @@ const getRecommendedAction = (insights: Insight[], riskLevel: string): 'Certify'
 
 export const RecordOverviewV11Story: Story = {
   name: 'Record Overview 1.1',
-  render: () => (
-    <UAREmployeeModeV12
-      titleOverride="Slack"
-      headerLayout="inline"
-      deadlineCardPosition="header"
-      sidebarHasTabs={false}
-      showLeftPanel={false}
-      showRadioTabs={true}
-      showRiskScoreColumn={true}
-      firstColumnHeader="User"
-      hideUsersTab={true}
-      hideTabBadges={true}
-      hideOwnerColumn={true}
-      hideProgressColumn={true}
-      hideUsersIncludedColumn={true}
-      riskColumnHeader="Risk"
-      hideRiskGauge={false}
-      insightsColumnHeader="Insights"
-      showInsightsBadgeOnly={true}
-      freezeFirstColumn={true}
-      firstColumnWidth={200}
-      hideViewByFilter={true}
-      hideSortByFilter={true}
-      initialSortColumn="col1"
-      initialSortDirection="asc"
-      customSortByUser={true}
-      sampleUsersForSorting={sampleUsers}
-      searchPlaceholder="Search users"
+  render: () => {
+    const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set(['row-1', 'row-2', 'row-3', 'row-5', 'row-7', 'row-9']));
+    const [rowDecisions, setRowDecisions] = useState<Map<string, 'Certify' | 'Revoke' | 'Modify'>>(new Map());
+    const jonathanInitialized = useRef(false);
+
+    const handleSelectAll = (checked: boolean) => {
+      if (checked) {
+        // Select all rows - we'll need to get all row IDs
+        // For now, we'll select based on sampleUsers length
+        const allRowIds = new Set<string>();
+        for (let i = 0; i < 50; i++) {
+          allRowIds.add(`row-${i + 1}`);
+        }
+        setSelectedRows(allRowIds);
+      } else {
+        setSelectedRows(new Set());
+      }
+    };
+
+    const handleRowSelect = (rowId: string, checked: boolean) => {
+      const newSelected = new Set(selectedRows);
+      if (checked) {
+        newSelected.add(rowId);
+      } else {
+        newSelected.delete(rowId);
+      }
+      setSelectedRows(newSelected);
+    };
+
+    const handleActionClick = (rowId: string, action: 'Certify' | 'Revoke' | 'Modify') => {
+      const newDecisions = new Map(rowDecisions);
+      newDecisions.set(rowId, action);
+      setRowDecisions(newDecisions);
+    };
+
+    return (
+      <UAREmployeeModeV12
+        titleOverride="Slack"
+        headerLayout="inline"
+        deadlineCardPosition="header"
+        sidebarHasTabs={false}
+        showLeftPanel={false}
+        showRadioTabs={true}
+        showRiskScoreColumn={true}
+        firstColumnHeader="User"
+        hideUsersTab={true}
+        hideTabBadges={true}
+        hideOwnerColumn={true}
+        hideProgressColumn={true}
+        hideUsersIncludedColumn={true}
+        riskColumnHeader="Risk"
+        hideRiskGauge={false}
+        insightsColumnHeader="Insights"
+        showInsightsBadgeOnly={true}
+        freezeFirstColumn={true}
+        firstColumnWidth={200}
+        hideViewByFilter={true}
+        hideSortByFilter={true}
+        initialSortColumn="col1"
+        initialSortDirection="asc"
+        customSortByUser={true}
+        sampleUsersForSorting={sampleUsers}
+        searchPlaceholder="Search users"
       showStatusColumn={false}
       groupsTabLabel="Insight Mode"
       showInsightsFilter={true}
-      customFirstColumnCell={(row) => {
-        const userIndex = parseInt(row.id.replace('row-', '')) - 1;
-        const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
-        return (
-          <div className="flex items-center gap-3 min-w-0">
-            <Avatar className="h-8 w-8 flex-shrink-0">
-              <AvatarFallback className="text-xs">
-                {getInitials(user.firstName, user.lastName)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-sm font-medium truncate" title={`${user.firstName} ${user.lastName}`}>
-                {user.firstName} {user.lastName}
-              </span>
-            </div>
-          </div>
-        );
+      showSignOffButton={true}
+      showPaginationCTA={true}
+      paginationCTALabel="Submit Review"
+      onPaginationCTAClick={() => {
+        console.log('Pagination CTA clicked');
+        alert(`Submitting review for ${selectedRows.size} selected users`);
       }}
+      selectedRows={selectedRows}
+      onSelectAll={handleSelectAll}
+      onRowSelect={handleRowSelect}
+        customFirstColumnCell={(row) => {
+          const userIndex = parseInt(row.id.replace('row-', '')) - 1;
+          const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
+          return (
+            <div className="flex items-center gap-3 min-w-0">
+              <Checkbox 
+                checked={selectedRows.has(row.id)}
+                onCheckedChange={(checked) => handleRowSelect(row.id, checked === true)}
+              />
+              <Avatar className="h-8 w-8 flex-shrink-0">
+                <AvatarFallback className="text-xs">
+                  {getInitials(user.firstName, user.lastName)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-sm font-medium truncate" title={`${user.firstName} ${user.lastName}`}>
+                  {user.firstName} {user.lastName}
+                </span>
+              </div>
+            </div>
+          );
+        }}
       customActionColumn={(row) => {
+        // Check if this is Jonathan Adams and mark as approved (only once)
+        if (!jonathanInitialized.current) {
+          const userIndex = parseInt(row.id.replace('row-', '')) - 1;
+          const user = sampleUsers[userIndex % sampleUsers.length];
+          if (user && user.firstName === 'Jonathan' && user.lastName === 'Adams') {
+            jonathanInitialized.current = true;
+            setRowDecisions((prev) => {
+              const newDecisions = new Map(prev);
+              newDecisions.set(row.id, 'Certify');
+              return newDecisions;
+            });
+          }
+        }
+        
+        const decision = rowDecisions.get(row.id);
+        
+        // If a decision has been made, show the selected action with icon and "more" button
+        if (decision) {
+          const actionConfig = {
+            Certify: {
+              label: 'Approved',
+              icon: CheckCircle,
+              className: 'bg-green-100 text-green-700 hover:bg-green-200 border-green-300',
+              iconColor: 'text-green-600'
+            },
+            Revoke: {
+              label: 'Revoked',
+              icon: XCircle,
+              className: 'bg-red-100 text-red-700 hover:bg-red-200 border-red-300',
+              iconColor: 'text-red-600'
+            },
+            Modify: {
+              label: 'Modified',
+              icon: Pencil,
+              className: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 border-yellow-300',
+              iconColor: 'text-yellow-600'
+            }
+          };
+          
+          const config = actionConfig[decision];
+          const Icon = config.icon;
+          
+          return (
+            <div className="flex items-center gap-2">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className={`h-7 text-xs flex items-center justify-center min-w-[85px] ${config.className}`}
+                onClick={() => {
+                  // Handle approved/revoked/modified button click - reset decision to show action buttons
+                  const newDecisions = new Map(rowDecisions);
+                  newDecisions.delete(row.id);
+                  setRowDecisions(newDecisions);
+                }}
+              >
+                <Icon className={`h-3 w-3 mr-1.5 ${config.iconColor}`} />
+                {config.label}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 w-7 p-0"
+                onClick={() => {
+                  // Handle more button click - could show menu or allow changing decision
+                  const newDecisions = new Map(rowDecisions);
+                  newDecisions.delete(row.id);
+                  setRowDecisions(newDecisions);
+                }}
+              >
+                <MoreVertical className="h-4 w-4" />
+                <span className="sr-only">More options</span>
+              </Button>
+            </div>
+          );
+        }
+        
+        // If no decision, show all three buttons
         // Generate insights for this row to determine recommended action
         const match = row.col8?.match(/(\d+)%/);
         const percent = match ? parseInt(match[1]) : 0;
@@ -341,6 +486,7 @@ export const RecordOverviewV11Story: Story = {
               size="sm" 
               variant="outline" 
               className="h-7 text-xs flex items-center justify-center min-w-[85px] bg-green-100 text-green-700 hover:bg-green-200 border-green-300"
+              onClick={() => handleActionClick(row.id, 'Certify')}
             >
               {recommendedAction === 'Certify' && <Sparkles className="h-3 w-3 mr-1.5" />}
               Certify
@@ -349,6 +495,7 @@ export const RecordOverviewV11Story: Story = {
               size="sm" 
               variant="outline" 
               className="h-7 text-xs flex items-center justify-center min-w-[85px] bg-red-100 text-red-700 hover:bg-red-200 border-red-300"
+              onClick={() => handleActionClick(row.id, 'Revoke')}
             >
               {recommendedAction === 'Revoke' && <Sparkles className="h-3 w-3 mr-1.5" />}
               Revoke
@@ -357,6 +504,7 @@ export const RecordOverviewV11Story: Story = {
               size="sm" 
               variant="outline" 
               className="h-7 text-xs flex items-center justify-center min-w-[85px] bg-yellow-100 text-yellow-700 hover:bg-yellow-200 border-yellow-300"
+              onClick={() => handleActionClick(row.id, 'Modify')}
             >
               {recommendedAction === 'Modify' && <Sparkles className="h-3 w-3 mr-1.5" />}
               Modify
@@ -364,67 +512,624 @@ export const RecordOverviewV11Story: Story = {
           </div>
         );
       }}
-    />
-  ),
+      />
+    );
+  },
 };
 
 export const RecordOverviewV12Story: Story = {
   name: 'Record Overview 1.2',
-  render: () => (
-    <UAREmployeeModeV12
-      titleOverride="Slack"
-      headerLayout="inline"
-      deadlineCardPosition="header"
-      sidebarHasTabs={false}
-      showLeftPanel={false}
-      showRadioTabs={true}
-      showRiskScoreColumn={true}
-      firstColumnHeader="User"
-      hideUsersTab={true}
-      hideTabBadges={true}
-      hideOwnerColumn={true}
-      hideProgressColumn={true}
-      hideUsersIncludedColumn={true}
-      riskColumnHeader="Risk"
-      hideRiskGauge={false}
-      insightsColumnHeader="Insights"
-      showInsightsBadgeOnly={true}
-      freezeFirstColumn={true}
-      firstColumnWidth={200}
-      hideViewByFilter={true}
-      hideSortByFilter={true}
-      initialSortColumn="col1"
-      initialSortDirection="asc"
-      customSortByUser={true}
-      sampleUsersForSorting={sampleUsers}
-      searchPlaceholder="Search users"
-      showStatusColumn={false}
-      groupsTabLabel="Insight Mode"
-      showInsightsFilter={true}
-      showSuggestedActionColumn={true}
-      hideInsightPopoverRecommendedAction={true}
-      showInsightPopoverDescriptionColumn={true}
-      hideSuggestedActionBadgeOutline={true}
-      filledSparkleIcon={false}
-      customFirstColumnCell={(row) => {
-        const userIndex = parseInt(row.id.replace('row-', '')) - 1;
-        const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
-        return (
-          <div className="flex items-center gap-3 min-w-0">
-            <Avatar className="h-8 w-8 flex-shrink-0">
-              <AvatarFallback className="text-xs">
-                {getInitials(user.firstName, user.lastName)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-sm font-medium truncate" title={`${user.firstName} ${user.lastName}`}>
-                {user.firstName} {user.lastName}
-              </span>
-            </div>
-          </div>
+  render: () => {
+    const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set(['row-1', 'row-2', 'row-3', 'row-5', 'row-7', 'row-9']));
+    // Pre-populate some rows with actions for demonstration
+    const [certifiedRows, setCertifiedRows] = useState<Set<string>>(new Set(['row-1', 'row-3', 'row-5']));
+    const [revokedRows, setRevokedRows] = useState<Set<string>>(new Set(['row-2', 'row-7']));
+    const [modifiedRows, setModifiedRows] = useState<Set<string>>(new Set(['row-4', 'row-9']));
+    const [certifyDialogOpen, setCertifyDialogOpen] = useState(false);
+    const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
+    const [modifyDialogOpen, setModifyDialogOpen] = useState(false);
+    const [certifyReason, setCertifyReason] = useState('');
+    const [revokeReason, setRevokeReason] = useState('');
+    const [modifyReason, setModifyReason] = useState('');
+    const [certifyingRow, setCertifyingRow] = useState<{ id: string; userName: string; rowData?: any } | null>(null);
+    const [revokingRow, setRevokingRow] = useState<{ id: string; userName: string; rowData?: any } | null>(null);
+    const [modifyingRow, setModifyingRow] = useState<{ id: string; userName: string; rowData?: any } | null>(null);
+    const [showReasonError, setShowReasonError] = useState(false);
+    const [showRevokeReasonError, setShowRevokeReasonError] = useState(false);
+    const [showModifyReasonError, setShowModifyReasonError] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const revokeTextareaRef = useRef<HTMLTextAreaElement>(null);
+    const modifyTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+    // Generate context-aware quick comments for certification
+    const generateQuickComments = (rowData: any): string[] => {
+      const comments: string[] = [];
+      const riskLevel = (rowData?.riskLevel || 'Medium').toString();
+      const userIndex = parseInt(rowData?.id?.replace('row-', '') || '1') - 1;
+      const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
+      
+      // Context-aware comments based on risk level
+      if (riskLevel === 'Low') {
+        comments.push(
+          'User has valid business need and access aligns with current role',
+          'Regular access review completed - no changes required',
+          'Access verified and appropriate for job responsibilities'
         );
-      }}
+      } else if (riskLevel === 'Medium') {
+        comments.push(
+          'Access reviewed and verified - user requires this for current role',
+          'Business justification confirmed - access is appropriate',
+          'User has demonstrated need for continued access'
+        );
+      } else {
+        comments.push(
+          'Access reviewed with additional scrutiny - verified as necessary',
+          'High-risk access justified by business requirements',
+          'Access approved after thorough review of business need'
+        );
+      }
+      
+      // Add role-specific comments
+      comments.push(
+        `Access aligns with ${user.firstName}'s current job responsibilities`,
+        'Access review completed - no security concerns identified'
+      );
+      
+      // Return max 5 comments
+      return comments.slice(0, 5);
+    };
+
+    // Generate context-aware quick comments for revocation
+    const generateRevokeQuickComments = (rowData: any): string[] => {
+      const comments: string[] = [];
+      const riskLevel = (rowData?.riskLevel || 'Medium').toString();
+      const userIndex = parseInt(rowData?.id?.replace('row-', '') || '1') - 1;
+      const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
+      
+      // Context-aware comments based on risk level
+      if (riskLevel === 'Low') {
+        comments.push(
+          'User no longer requires this access for current role',
+          'Access removed due to role change',
+          'User has been reassigned and no longer needs this access'
+        );
+      } else if (riskLevel === 'Medium') {
+        comments.push(
+          'Access revoked due to security concerns',
+          'User no longer has business justification for this access',
+          'Access removed following security review'
+        );
+      } else {
+        comments.push(
+          'High-risk access revoked due to security policy violation',
+          'Access removed following security audit findings',
+          'Revoked due to compliance requirements'
+        );
+      }
+      
+      // Add role-specific comments
+      comments.push(
+        `Access no longer aligns with ${user.firstName}'s current job responsibilities`,
+        'Access revoked - user no longer requires this level of access'
+      );
+      
+      // Return max 5 comments
+      return comments.slice(0, 5);
+    };
+
+    // Generate context-aware quick comments for modification
+    const generateModifyQuickComments = (rowData: any): string[] => {
+      const comments: string[] = [];
+      const riskLevel = (rowData?.riskLevel || 'Medium').toString();
+      const userIndex = parseInt(rowData?.id?.replace('row-', '') || '1') - 1;
+      const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
+      
+      // Context-aware comments based on risk level
+      if (riskLevel === 'Low') {
+        comments.push(
+          'Access needs to be adjusted to match current role requirements',
+          'Modify access permissions to align with updated job responsibilities',
+          'Update access level based on role changes'
+        );
+      } else if (riskLevel === 'Medium') {
+        comments.push(
+          'Access requires modification due to security policy updates',
+          'Adjust permissions to meet current security standards',
+          'Modify access to comply with updated compliance requirements'
+        );
+      } else {
+        comments.push(
+          'High-risk access requires modification for security compliance',
+          'Adjust permissions following security audit recommendations',
+          'Modify access to meet enhanced security protocols'
+        );
+      }
+      
+      // Add role-specific comments
+      comments.push(
+        `Access permissions need adjustment for ${user.firstName}'s current role`,
+        'Modify access to better align with current business needs'
+      );
+      
+      // Return max 5 comments
+      return comments.slice(0, 5);
+    };
+
+    const handleSelectAll = (checked: boolean) => {
+      if (checked) {
+        // Select all rows - we'll need to get all row IDs
+        // For now, we'll select based on sampleUsers length
+        const allRowIds = new Set<string>();
+        for (let i = 0; i < 50; i++) {
+          allRowIds.add(`row-${i + 1}`);
+        }
+        setSelectedRows(allRowIds);
+      } else {
+        setSelectedRows(new Set());
+      }
+    };
+
+    const handleRowSelect = (rowId: string, checked: boolean) => {
+      const newSelected = new Set(selectedRows);
+      if (checked) {
+        newSelected.add(rowId);
+      } else {
+        newSelected.delete(rowId);
+      }
+      setSelectedRows(newSelected);
+    };
+
+    const handleCertifyClick = (row: any) => {
+      const userIndex = parseInt(row.id.replace('row-', '')) - 1;
+      const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
+      const userName = `${user.firstName} ${user.lastName}`;
+      setCertifyingRow({ id: row.id, userName, rowData: row });
+      setCertifyDialogOpen(true);
+      setCertifyReason('');
+      setShowReasonError(false);
+    };
+
+    const handleQuickCommentClick = (comment: string) => {
+      setCertifyReason(comment);
+      if (showReasonError) {
+        setShowReasonError(false);
+      }
+      // Focus back on textarea after inserting
+      setTimeout(() => {
+        textareaRef.current?.focus();
+        // Move cursor to end
+        if (textareaRef.current) {
+          textareaRef.current.setSelectionRange(comment.length, comment.length);
+        }
+      }, 0);
+    };
+
+    const handleCopyComment = async (comment: string) => {
+      try {
+        await navigator.clipboard.writeText(comment);
+        // You could add a toast notification here if needed
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    };
+
+    const handleCertifyConfirm = () => {
+      if (!certifyReason.trim()) {
+        setShowReasonError(true);
+        return; // Don't close if reason is empty
+      }
+      // Here you would typically make an API call to certify the user
+      console.log('Certifying user:', certifyingRow?.userName, 'Reason:', certifyReason);
+      
+      // Mark the row as certified and remove from revoked/modified if it was revoked/modified
+      if (certifyingRow?.id) {
+        setCertifiedRows((prev) => new Set(prev).add(certifyingRow.id));
+        setRevokedRows((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(certifyingRow.id);
+          return newSet;
+        });
+        setModifiedRows((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(certifyingRow.id);
+          return newSet;
+        });
+      }
+      
+      // Close dialog and reset state
+      setCertifyDialogOpen(false);
+      setCertifyReason('');
+      setCertifyingRow(null);
+      setShowReasonError(false);
+    };
+
+    const handleCertifyCancel = () => {
+      setCertifyDialogOpen(false);
+      setCertifyReason('');
+      setCertifyingRow(null);
+    };
+
+    const handleRevokeClick = (row: any) => {
+      const userIndex = parseInt(row.id.replace('row-', '')) - 1;
+      const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
+      const userName = `${user.firstName} ${user.lastName}`;
+      setRevokingRow({ id: row.id, userName, rowData: row });
+      setRevokeDialogOpen(true);
+      setRevokeReason('');
+      setShowRevokeReasonError(false);
+    };
+
+    const handleRevokeQuickCommentClick = (comment: string) => {
+      setRevokeReason(comment);
+      if (showRevokeReasonError) {
+        setShowRevokeReasonError(false);
+      }
+      // Focus back on textarea after inserting
+      setTimeout(() => {
+        revokeTextareaRef.current?.focus();
+        // Move cursor to end
+        if (revokeTextareaRef.current) {
+          revokeTextareaRef.current.setSelectionRange(comment.length, comment.length);
+        }
+      }, 0);
+    };
+
+    const handleRevokeConfirm = () => {
+      if (!revokeReason.trim()) {
+        setShowRevokeReasonError(true);
+        return; // Don't close if reason is empty
+      }
+      // Here you would typically make an API call to revoke the user
+      console.log('Revoking user:', revokingRow?.userName, 'Reason:', revokeReason);
+      
+      // Mark the row as revoked and remove from certified/modified if it was certified/modified
+      if (revokingRow?.id) {
+        setRevokedRows((prev) => new Set(prev).add(revokingRow.id));
+        setCertifiedRows((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(revokingRow.id);
+          return newSet;
+        });
+        setModifiedRows((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(revokingRow.id);
+          return newSet;
+        });
+      }
+      
+      // Close dialog and reset state
+      setRevokeDialogOpen(false);
+      setRevokeReason('');
+      setRevokingRow(null);
+      setShowRevokeReasonError(false);
+    };
+
+    const handleRevokeCancel = () => {
+      setRevokeDialogOpen(false);
+      setRevokeReason('');
+      setRevokingRow(null);
+    };
+
+    const handleModifyClick = (row: any) => {
+      const userIndex = parseInt(row.id.replace('row-', '')) - 1;
+      const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
+      const userName = `${user.firstName} ${user.lastName}`;
+      setModifyingRow({ id: row.id, userName, rowData: row });
+      setModifyDialogOpen(true);
+      setModifyReason('');
+      setShowModifyReasonError(false);
+    };
+
+    const handleModifyQuickCommentClick = (comment: string) => {
+      setModifyReason(comment);
+      if (showModifyReasonError) {
+        setShowModifyReasonError(false);
+      }
+      // Focus back on textarea after inserting
+      setTimeout(() => {
+        modifyTextareaRef.current?.focus();
+        // Move cursor to end
+        if (modifyTextareaRef.current) {
+          modifyTextareaRef.current.setSelectionRange(comment.length, comment.length);
+        }
+      }, 0);
+    };
+
+    const handleModifyConfirm = () => {
+      if (!modifyReason.trim()) {
+        setShowModifyReasonError(true);
+        return; // Don't close if reason is empty
+      }
+      // Here you would typically make an API call to modify the user
+      console.log('Modifying user:', modifyingRow?.userName, 'Reason:', modifyReason);
+      
+      // Mark the row as modified and remove from certified/revoked if it was certified/revoked
+      if (modifyingRow?.id) {
+        setModifiedRows((prev) => new Set(prev).add(modifyingRow.id));
+        setCertifiedRows((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(modifyingRow.id);
+          return newSet;
+        });
+        setRevokedRows((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(modifyingRow.id);
+          return newSet;
+        });
+      }
+      
+      // Close dialog and reset state
+      setModifyDialogOpen(false);
+      setModifyReason('');
+      setModifyingRow(null);
+      setShowModifyReasonError(false);
+    };
+
+    const handleModifyCancel = () => {
+      setModifyDialogOpen(false);
+      setModifyReason('');
+      setModifyingRow(null);
+    };
+
+    const handleDialogOpenChange = (open: boolean) => {
+      setCertifyDialogOpen(open);
+      if (!open) {
+        // Reset state when dialog closes
+        setCertifyReason('');
+        setCertifyingRow(null);
+        setShowReasonError(false);
+      }
+    };
+
+    const handleRevokeDialogOpenChange = (open: boolean) => {
+      setRevokeDialogOpen(open);
+      if (!open) {
+        // Reset state when dialog closes
+        setRevokeReason('');
+        setRevokingRow(null);
+        setShowRevokeReasonError(false);
+      }
+    };
+
+    // Auto-focus textarea when dialog opens
+    useEffect(() => {
+      if (certifyDialogOpen && textareaRef.current) {
+        // Small delay to ensure dialog is fully rendered
+        setTimeout(() => {
+          textareaRef.current?.focus();
+        }, 100);
+      }
+    }, [certifyDialogOpen]);
+
+    useEffect(() => {
+      if (revokeDialogOpen && revokeTextareaRef.current) {
+        // Small delay to ensure dialog is fully rendered
+        setTimeout(() => {
+          revokeTextareaRef.current?.focus();
+        }, 100);
+      }
+    }, [revokeDialogOpen]);
+
+    useEffect(() => {
+      if (modifyDialogOpen && modifyTextareaRef.current) {
+        // Small delay to ensure dialog is fully rendered
+        setTimeout(() => {
+          modifyTextareaRef.current?.focus();
+        }, 100);
+      }
+    }, [modifyDialogOpen]);
+
+    return (
+      <>
+      <UAREmployeeModeV12
+        titleOverride="Slack"
+        headerLayout="inline"
+        deadlineCardPosition="header"
+        sidebarHasTabs={false}
+        showLeftPanel={false}
+        showRadioTabs={false}
+        showRiskScoreColumn={true}
+        firstColumnHeader="User"
+        hideUsersTab={true}
+        hideTabBadges={true}
+        hideOwnerColumn={true}
+        hideProgressColumn={true}
+        hideUsersIncludedColumn={true}
+        riskColumnHeader="Risk"
+        hideRiskGauge={false}
+        insightsColumnHeader="Insights"
+        showInsightsBadgeOnly={true}
+        freezeFirstColumn={true}
+        firstColumnWidth={280}
+        hideViewByFilter={true}
+        hideSortByFilter={true}
+        initialSortColumn="col1"
+        initialSortDirection="asc"
+        customSortByUser={true}
+        sampleUsersForSorting={sampleUsers}
+        searchPlaceholder="Search users"
+        showStatusColumn={false}
+        groupsTabLabel="Insight Mode"
+        showInsightsFilter={true}
+        showSuggestedActionColumn={true}
+        hideInsightPopoverRecommendedAction={true}
+        showInsightPopoverDescriptionColumn={true}
+        hideSuggestedActionBadgeOutline={true}
+        filledSparkleIcon={false}
+        showSignOffButton={true}
+        selectedRows={selectedRows}
+        onSelectAll={handleSelectAll}
+        onRowSelect={handleRowSelect}
+        customFirstColumnCell={(row) => {
+          const userIndex = parseInt(row.id.replace('row-', '')) - 1;
+          const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
+          const userEmail = (row as any).userEmail || `${user.firstName.toLowerCase()}.${user.lastName.toLowerCase()}@cloud.dev`;
+          return (
+            <div className="flex items-center gap-3 min-w-0">
+              <Checkbox 
+                checked={selectedRows.has(row.id)}
+                onCheckedChange={(checked) => handleRowSelect(row.id, checked === true)}
+              />
+              <Avatar className="h-8 w-8 flex-shrink-0">
+                <AvatarFallback className="text-xs">
+                  {getInitials(user.firstName, user.lastName)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-sm font-medium truncate" title={`${user.firstName} ${user.lastName}`}>
+                  {user.firstName} {user.lastName}
+                </span>
+                <span className="text-xs text-muted-foreground truncate" title={userEmail}>
+                  {userEmail}
+                </span>
+              </div>
+            </div>
+          );
+        }}
       customActionColumn={(row) => {
+        // Check if row is certified
+        if (certifiedRows.has(row.id)) {
+          return (
+            <div className="flex items-center gap-2">
+              <Badge className="bg-green-100 text-green-700 border-transparent text-sm px-3 py-1">
+                <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                Certified
+              </Badge>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    aria-label="More options"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => {
+                    // Handle Change Action - remove certification and show action buttons
+                    setCertifiedRows((prev) => {
+                      const newSet = new Set(prev);
+                      newSet.delete(row.id);
+                      return newSet;
+                    });
+                  }}>
+                    Change Action
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    // Handle Edit Comment - open dialog with existing reason
+                    const userIndex = parseInt(row.id.replace('row-', '')) - 1;
+                    const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
+                    const userName = `${user.firstName} ${user.lastName}`;
+                    setCertifyingRow({ id: row.id, userName, rowData: row });
+                    setCertifyDialogOpen(true);
+                    // You could store the reason when certifying and retrieve it here
+                    // For now, we'll just open the dialog
+                    setShowReasonError(false);
+                  }}>
+                    Edit Comment
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        }
+        
+        // Check if row is revoked
+        if (revokedRows.has(row.id)) {
+          return (
+            <div className="flex items-center gap-2">
+              <Badge className="bg-red-100 text-red-700 border-transparent text-sm px-3 py-1">
+                <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                Revoked
+              </Badge>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    aria-label="More options"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => {
+                    // Handle Change Action - remove revocation and show action buttons
+                    setRevokedRows((prev) => {
+                      const newSet = new Set(prev);
+                      newSet.delete(row.id);
+                      return newSet;
+                    });
+                  }}>
+                    Change Action
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    // Handle Edit Comment - open dialog with existing reason
+                    const userIndex = parseInt(row.id.replace('row-', '')) - 1;
+                    const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
+                    const userName = `${user.firstName} ${user.lastName}`;
+                    setRevokingRow({ id: row.id, userName, rowData: row });
+                    setRevokeDialogOpen(true);
+                    setShowRevokeReasonError(false);
+                  }}>
+                    Edit Comment
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        }
+        
+        // Check if row is modified
+        if (modifiedRows.has(row.id)) {
+          return (
+            <div className="flex items-center gap-2">
+              <Badge className="bg-yellow-100 text-yellow-700 border-transparent text-sm px-3 py-1">
+                <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                Modified
+              </Badge>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0"
+                    aria-label="More options"
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => {
+                    // Handle Change Action - remove modification and show action buttons
+                    setModifiedRows((prev) => {
+                      const newSet = new Set(prev);
+                      newSet.delete(row.id);
+                      return newSet;
+                    });
+                  }}>
+                    Change Action
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    // Handle Edit Comment - open dialog with existing reason
+                    const userIndex = parseInt(row.id.replace('row-', '') || '1') - 1;
+                    const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
+                    const userName = `${user.firstName} ${user.lastName}`;
+                    setModifyingRow({ id: row.id, userName, rowData: row });
+                    setModifyDialogOpen(true);
+                    setShowModifyReasonError(false);
+                  }}>
+                    Edit Comment
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          );
+        }
+        
         // Generate insights for this row to determine recommended action
         const match = row.col8?.match(/(\d+)%/);
         const percent = match ? parseInt(match[1]) : 0;
@@ -447,6 +1152,7 @@ export const RecordOverviewV12Story: Story = {
               className="h-7 w-7 p-0 flex items-center justify-center bg-green-100 hover:bg-green-200 border-green-300"
               title="Certify"
               aria-label="Certify"
+              onClick={() => handleCertifyClick(row)}
             >
               <CheckCircle className={`h-4 w-4 text-green-600`} style={{ opacity: recommendedAction === 'Certify' ? 1 : 0.6 }} />
             </Button>
@@ -456,6 +1162,7 @@ export const RecordOverviewV12Story: Story = {
               className="h-7 w-7 p-0 flex items-center justify-center bg-red-100 hover:bg-red-200 border-red-300"
               title="Revoke"
               aria-label="Revoke"
+              onClick={() => handleRevokeClick(row)}
             >
               <XCircle className={`h-4 w-4 text-red-600`} style={{ opacity: recommendedAction === 'Revoke' ? 1 : 0.6 }} />
             </Button>
@@ -465,12 +1172,223 @@ export const RecordOverviewV12Story: Story = {
               className="h-7 w-7 p-0 flex items-center justify-center bg-yellow-100 hover:bg-yellow-200 border-yellow-300"
               title="Modify"
               aria-label="Modify"
+              onClick={() => handleModifyClick(row)}
             >
               <Pencil className={`h-4 w-4 text-yellow-600`} style={{ opacity: recommendedAction === 'Modify' ? 1 : 0.6 }} />
             </Button>
           </div>
         );
       }}
-    />
-  ),
+      />
+      <Dialog open={certifyDialogOpen} onOpenChange={handleDialogOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Certify Access</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="certify-reason">
+                Reason <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                ref={textareaRef}
+                id="certify-reason"
+                placeholder="Enter the reason for certification..."
+                value={certifyReason}
+                onChange={(e) => {
+                  setCertifyReason(e.target.value);
+                  if (showReasonError && e.target.value.trim()) {
+                    setShowReasonError(false);
+                  }
+                }}
+                className="min-h-[100px]"
+              />
+              {showReasonError && !certifyReason.trim() && (
+                <p className="text-sm text-destructive">Reason is required</p>
+              )}
+              {certifyingRow?.rowData && (
+                <div className="space-y-2 pt-2">
+                  <p className="text-xs font-normal text-muted-foreground">Quick comments</p>
+                  <ul className="space-y-1.5">
+                    {generateQuickComments(certifyingRow.rowData).map((comment, index) => (
+                      <li
+                        key={index}
+                        className="group flex items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors"
+                        onClick={() => handleQuickCommentClick(comment)}
+                      >
+                        <span className="flex-1">{comment}</span>
+                        <button
+                          className="ml-2 rounded-sm p-1 hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyComment(comment);
+                          }}
+                          title="Copy comment"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCertifyCancel}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCertifyConfirm}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Certify
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={revokeDialogOpen} onOpenChange={handleRevokeDialogOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Revoke Access</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="revoke-reason">
+                Reason <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                ref={revokeTextareaRef}
+                id="revoke-reason"
+                placeholder="Enter the reason for revocation..."
+                value={revokeReason}
+                onChange={(e) => {
+                  setRevokeReason(e.target.value);
+                  if (showRevokeReasonError && e.target.value.trim()) {
+                    setShowRevokeReasonError(false);
+                  }
+                }}
+                className="min-h-[100px]"
+              />
+              {showRevokeReasonError && !revokeReason.trim() && (
+                <p className="text-sm text-destructive">Reason is required</p>
+              )}
+              {revokingRow?.rowData && (
+                <div className="space-y-2 pt-2">
+                  <p className="text-xs font-normal text-muted-foreground">Quick comments</p>
+                  <ul className="space-y-1.5">
+                    {generateRevokeQuickComments(revokingRow.rowData).map((comment, index) => (
+                      <li
+                        key={index}
+                        className="group flex items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors"
+                        onClick={() => handleRevokeQuickCommentClick(comment)}
+                      >
+                        <span className="flex-1">{comment}</span>
+                        <button
+                          className="ml-2 rounded-sm p-1 hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyComment(comment);
+                          }}
+                          title="Copy comment"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleRevokeCancel}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleRevokeConfirm}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Revoke
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={modifyDialogOpen} onOpenChange={(open) => {
+        setModifyDialogOpen(open);
+        if (!open) {
+          setModifyReason('');
+          setModifyingRow(null);
+          setShowModifyReasonError(false);
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modify Access</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="modify-reason">
+                Reason <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                ref={modifyTextareaRef}
+                id="modify-reason"
+                placeholder="Enter the reason for modification..."
+                value={modifyReason}
+                onChange={(e) => {
+                  setModifyReason(e.target.value);
+                  if (showModifyReasonError && e.target.value.trim()) {
+                    setShowModifyReasonError(false);
+                  }
+                }}
+                className="min-h-[100px]"
+              />
+              {showModifyReasonError && !modifyReason.trim() && (
+                <p className="text-sm text-destructive">Reason is required</p>
+              )}
+              {modifyingRow?.rowData && (
+                <div className="space-y-2 pt-2">
+                  <p className="text-xs font-normal text-muted-foreground">Quick comments</p>
+                  <ul className="space-y-1.5">
+                    {generateModifyQuickComments(modifyingRow.rowData).map((comment, index) => (
+                      <li
+                        key={index}
+                        className="group flex items-center justify-between rounded-md border border-border bg-background px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors"
+                        onClick={() => handleModifyQuickCommentClick(comment)}
+                      >
+                        <span className="flex-1">{comment}</span>
+                        <button
+                          className="ml-2 rounded-sm p-1 hover:bg-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyComment(comment);
+                          }}
+                          title="Copy comment"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleModifyCancel}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleModifyConfirm}
+              className="bg-yellow-600 hover:bg-yellow-700"
+            >
+              Modify
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      </>
+    );
+  },
 };
