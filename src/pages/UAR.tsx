@@ -880,16 +880,90 @@ export function UAR({
       }
       // Skip the default comparison if we already handled custom user sorting
       if (!(customSortByUser && sortColumn === 'col1' && customFirstColumnCell && sampleUsersForSorting)) {
+        // Handle col7 (Records) - extract number from string like "1,234"
+        if (sortColumn === 'col7') {
+          const aStr = String(aValue || '').replace(/,/g, '');
+          const bStr = String(bValue || '').replace(/,/g, '');
+          aValue = Number(aStr) || 0;
+          bValue = Number(bStr) || 0;
+        }
         // Handle numeric values
-        if (sortColumn === 'col5Days' || sortColumn === 'progress' || sortColumn === 'riskScore') {
+        else if (sortColumn === 'col5Days' || sortColumn === 'progress' || sortColumn === 'riskScore' || sortColumn === 'reviewerLevel') {
           aValue = Number(aValue) || 0;
           bValue = Number(bValue) || 0;
+        }
+        // Handle status column (col9)
+        else if (sortColumn === 'status') {
+          aValue = (a as any).col9 || '';
+          bValue = (b as any).col9 || '';
+          aValue = String(aValue).toLowerCase();
+          bValue = String(bValue).toLowerCase();
+        }
+        // Handle suggestedAction - extract from row data if available
+        else if (sortColumn === 'suggestedAction') {
+          // Try to get suggested action from row data, default to empty string
+          aValue = (a as any).suggestedAction || '';
+          bValue = (b as any).suggestedAction || '';
+          aValue = String(aValue).toLowerCase();
+          bValue = String(bValue).toLowerCase();
+        }
+        // Handle email column
+        else if (sortColumn === 'email') {
+          aValue = (a as any).userEmail || '';
+          bValue = (b as any).userEmail || '';
+          aValue = String(aValue).toLowerCase();
+          bValue = String(bValue).toLowerCase();
+        }
+        // Handle employmentStatus column
+        else if (sortColumn === 'employmentStatus') {
+          aValue = (a as any).employmentStatus || '';
+          bValue = (b as any).employmentStatus || '';
+          aValue = String(aValue).toLowerCase();
+          bValue = String(bValue).toLowerCase();
+        }
+        // Handle userAppStatus column
+        else if (sortColumn === 'userAppStatus') {
+          aValue = (a as any).applicationStatus || '';
+          bValue = (b as any).applicationStatus || '';
+          aValue = String(aValue).toLowerCase();
+          bValue = String(bValue).toLowerCase();
+        }
+        // Handle assignedLicences column
+        else if (sortColumn === 'assignedLicences') {
+          aValue = (a as any).assignedLicenses || '';
+          bValue = (b as any).assignedLicenses || '';
+          aValue = String(aValue).toLowerCase();
+          bValue = String(bValue).toLowerCase();
+        }
+        // Handle jobTitle column
+        else if (sortColumn === 'jobTitle') {
+          aValue = (a as any).userJobTitle || '';
+          bValue = (b as any).userJobTitle || '';
+          aValue = String(aValue).toLowerCase();
+          bValue = String(bValue).toLowerCase();
+        }
+        // Handle accountType column
+        else if (sortColumn === 'accountType') {
+          aValue = (a as any).userAccountType || '';
+          bValue = (b as any).userAccountType || '';
+          aValue = String(aValue).toLowerCase();
+          bValue = String(bValue).toLowerCase();
+        }
+        // Handle department column
+        else if (sortColumn === 'department') {
+          aValue = (a as any).userDepartment || '';
+          bValue = (b as any).userDepartment || '';
+          aValue = String(aValue).toLowerCase();
+          bValue = String(bValue).toLowerCase();
         }
         // Handle string values
         else if (typeof aValue === 'string' && typeof bValue === 'string') {
           aValue = aValue.toLowerCase();
           bValue = bValue.toLowerCase();
         }
+        // Handle undefined/null values
+        else if (aValue == null) aValue = '';
+        else if (bValue == null) bValue = '';
         
         if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
         if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
@@ -2221,20 +2295,164 @@ export function UAR({
                                       </div>
                                     </TableHead>
                                     {showRiskScoreColumn && firstColumnHeader === 'User' ? (
-                                      <TableHead className="py-2 text-xs bg-muted">{riskColumnHeader ?? 'App Risk Sensitivity'}</TableHead>
+                                      <TableHead 
+                                        className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                        onClick={() => handleSort('riskScore')}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span>{riskColumnHeader ?? 'App Risk Sensitivity'}</span>
+                                          {sortColumn === 'riskScore' ? (
+                                            sortDirection === 'asc' ? (
+                                              <ArrowUp className="h-3 w-3 text-primary" />
+                                            ) : (
+                                              <ArrowDown className="h-3 w-3 text-primary" />
+                                            )
+                                          ) : (
+                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                          )}
+                                        </div>
+                                      </TableHead>
                                     ) : null}
                                     {showSuggestedActionColumn && firstColumnHeader === 'User' ? (
-                                      <TableHead className="py-2 text-xs bg-muted">Suggested Action</TableHead>
+                                      <TableHead 
+                                        className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                        onClick={() => handleSort('suggestedAction')}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span>Suggested Action</span>
+                                          {sortColumn === 'suggestedAction' ? (
+                                            sortDirection === 'asc' ? (
+                                              <ArrowUp className="h-3 w-3 text-primary" />
+                                            ) : (
+                                              <ArrowDown className="h-3 w-3 text-primary" />
+                                            )
+                                          ) : (
+                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                          )}
+                                        </div>
+                                      </TableHead>
                                     ) : null}
                                     {firstColumnHeader === 'User' ? (
                                       <>
-                                        <TableHead className="py-2 text-xs bg-muted">Email</TableHead>
-                                        <TableHead className="py-2 text-xs bg-muted">Employment Status</TableHead>
-                                        <TableHead className="py-2 text-xs bg-muted">User Application Status</TableHead>
-                                        <TableHead className="py-2 text-xs bg-muted">Assigned Licences</TableHead>
-                                        <TableHead className="py-2 text-xs bg-muted">Job Title</TableHead>
-                                        <TableHead className="py-2 text-xs bg-muted">Account Type</TableHead>
-                                        <TableHead className="py-2 text-xs bg-muted">Department</TableHead>
+                                        <TableHead 
+                                          className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                          onClick={() => handleSort('email')}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span>Email</span>
+                                            {sortColumn === 'email' ? (
+                                              sortDirection === 'asc' ? (
+                                                <ArrowUp className="h-3 w-3 text-primary" />
+                                              ) : (
+                                                <ArrowDown className="h-3 w-3 text-primary" />
+                                              )
+                                            ) : (
+                                              <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                            )}
+                                          </div>
+                                        </TableHead>
+                                        <TableHead 
+                                          className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                          onClick={() => handleSort('employmentStatus')}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span>Employment Status</span>
+                                            {sortColumn === 'employmentStatus' ? (
+                                              sortDirection === 'asc' ? (
+                                                <ArrowUp className="h-3 w-3 text-primary" />
+                                              ) : (
+                                                <ArrowDown className="h-3 w-3 text-primary" />
+                                              )
+                                            ) : (
+                                              <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                            )}
+                                          </div>
+                                        </TableHead>
+                                        <TableHead 
+                                          className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                          onClick={() => handleSort('userAppStatus')}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span>User Application Status</span>
+                                            {sortColumn === 'userAppStatus' ? (
+                                              sortDirection === 'asc' ? (
+                                                <ArrowUp className="h-3 w-3 text-primary" />
+                                              ) : (
+                                                <ArrowDown className="h-3 w-3 text-primary" />
+                                              )
+                                            ) : (
+                                              <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                            )}
+                                          </div>
+                                        </TableHead>
+                                        <TableHead 
+                                          className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                          onClick={() => handleSort('assignedLicences')}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span>Assigned Licences</span>
+                                            {sortColumn === 'assignedLicences' ? (
+                                              sortDirection === 'asc' ? (
+                                                <ArrowUp className="h-3 w-3 text-primary" />
+                                              ) : (
+                                                <ArrowDown className="h-3 w-3 text-primary" />
+                                              )
+                                            ) : (
+                                              <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                            )}
+                                          </div>
+                                        </TableHead>
+                                        <TableHead 
+                                          className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                          onClick={() => handleSort('jobTitle')}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span>Job Title</span>
+                                            {sortColumn === 'jobTitle' ? (
+                                              sortDirection === 'asc' ? (
+                                                <ArrowUp className="h-3 w-3 text-primary" />
+                                              ) : (
+                                                <ArrowDown className="h-3 w-3 text-primary" />
+                                              )
+                                            ) : (
+                                              <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                            )}
+                                          </div>
+                                        </TableHead>
+                                        <TableHead 
+                                          className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                          onClick={() => handleSort('accountType')}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span>Account Type</span>
+                                            {sortColumn === 'accountType' ? (
+                                              sortDirection === 'asc' ? (
+                                                <ArrowUp className="h-3 w-3 text-primary" />
+                                              ) : (
+                                                <ArrowDown className="h-3 w-3 text-primary" />
+                                              )
+                                            ) : (
+                                              <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                            )}
+                                          </div>
+                                        </TableHead>
+                                        <TableHead 
+                                          className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                          onClick={() => handleSort('department')}
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <span>Department</span>
+                                            {sortColumn === 'department' ? (
+                                              sortDirection === 'asc' ? (
+                                                <ArrowUp className="h-3 w-3 text-primary" />
+                                              ) : (
+                                                <ArrowDown className="h-3 w-3 text-primary" />
+                                              )
+                                            ) : (
+                                              <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                            )}
+                                          </div>
+                                        </TableHead>
                                       </>
                                     ) : null}
                                     {!hideOwnerColumn ? (
@@ -2295,22 +2513,102 @@ export function UAR({
                                       </TableHead>
                                     ) : null}
                                     {showRiskScoreColumn && firstColumnHeader !== 'User' ? (
-                                      <TableHead className="py-2 text-xs bg-muted">{riskColumnHeader ?? 'App Risk Sensitivity'}</TableHead>
+                                      <TableHead 
+                                        className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                        onClick={() => handleSort('riskScore')}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span>{riskColumnHeader ?? 'App Risk Sensitivity'}</span>
+                                          {sortColumn === 'riskScore' ? (
+                                            sortDirection === 'asc' ? (
+                                              <ArrowUp className="h-3 w-3 text-primary" />
+                                            ) : (
+                                              <ArrowDown className="h-3 w-3 text-primary" />
+                                            )
+                                          ) : (
+                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                          )}
+                                        </div>
+                                      </TableHead>
                                     ) : null}
                                     {showStatusColumn ? (
-                                      <TableHead className="py-2 text-xs bg-muted">Status</TableHead>
+                                      <TableHead 
+                                        className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                        onClick={() => handleSort('status')}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span>Status</span>
+                                          {sortColumn === 'status' ? (
+                                            sortDirection === 'asc' ? (
+                                              <ArrowUp className="h-3 w-3 text-primary" />
+                                            ) : (
+                                              <ArrowDown className="h-3 w-3 text-primary" />
+                                            )
+                                          ) : (
+                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                          )}
+                                        </div>
+                                      </TableHead>
                                     ) : null}
                                     {!hideUsersIncludedColumn ? (
-                                      <TableHead className="py-2 text-xs bg-muted">Records</TableHead>
+                                      <TableHead 
+                                        className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                        onClick={() => handleSort('col7')}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span>Records</span>
+                                          {sortColumn === 'col7' ? (
+                                            sortDirection === 'asc' ? (
+                                              <ArrowUp className="h-3 w-3 text-primary" />
+                                            ) : (
+                                              <ArrowDown className="h-3 w-3 text-primary" />
+                                            )
+                                          ) : (
+                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                          )}
+                                        </div>
+                                      </TableHead>
                                     ) : null}
                                     {!hideInsightsColumn && !showSuggestedActionColumn ? (
                                       <TableHead className="py-2 text-xs bg-muted">{insightsColumnHeader ?? 'Bulk action eligible'}</TableHead>
                                     ) : null}
                                     {showReviewerLevelColumn ? (
-                                      <TableHead className="py-2 text-xs bg-muted">Your Review Level</TableHead>
+                                      <TableHead 
+                                        className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                        onClick={() => handleSort('reviewerLevel')}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span>Your Review Level</span>
+                                          {sortColumn === 'reviewerLevel' ? (
+                                            sortDirection === 'asc' ? (
+                                              <ArrowUp className="h-3 w-3 text-primary" />
+                                            ) : (
+                                              <ArrowDown className="h-3 w-3 text-primary" />
+                                            )
+                                          ) : (
+                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                          )}
+                                        </div>
+                                      </TableHead>
                                     ) : null}
                                     {showSuggestedActionColumn && firstColumnHeader !== 'User' ? (
-                                      <TableHead className="py-2 text-xs bg-muted">Suggested Action</TableHead>
+                                      <TableHead 
+                                        className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                        onClick={() => handleSort('suggestedAction')}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span>Suggested Action</span>
+                                          {sortColumn === 'suggestedAction' ? (
+                                            sortDirection === 'asc' ? (
+                                              <ArrowUp className="h-3 w-3 text-primary" />
+                                            ) : (
+                                              <ArrowDown className="h-3 w-3 text-primary" />
+                                            )
+                                          ) : (
+                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                          )}
+                                        </div>
+                                      </TableHead>
                                     ) : null}
                                     <TableHead className={`py-2 text-xs bg-muted ${firstColumnHeader === 'User' ? 'sticky right-0 z-20 border-l border-muted-foreground/20' : ''}`}>
                                       Action
