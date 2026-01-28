@@ -22,6 +22,11 @@ const preview: Preview = {
         },
       },
     },
+    options: {
+      storySort: {
+        order: ['ShadCN Components', 'Zluri Components', 'Pages', 'Flows'],
+      },
+    },
   },
 };
 

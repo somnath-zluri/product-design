@@ -24,6 +24,7 @@ interface UAREmployeeModeV12Props {
   hideProgressColumn?: boolean;
   customActionColumn?: (row: any) => ReactNode;
   customFirstColumnCell?: (row: any) => ReactNode;
+  customCurrentReviewerCell?: (row: any) => ReactNode;
   riskColumnHeader?: string;
   hideRiskGauge?: boolean;
   insightsColumnHeader?: string;
@@ -40,12 +41,14 @@ interface UAREmployeeModeV12Props {
   showStatusColumn?: boolean;
   customStatusValues?: Array<'Pending' | 'Certified' | 'Modified' | 'Revoked'>;
   showReviewerLevelColumn?: boolean;
+  showCurrentReviewerColumn?: boolean;
   showTwoButtonGroup?: boolean;
   firstButtonLabel?: string;
   secondButtonLabel?: string;
   groupsTabLabel?: string;
   showInsightsFilter?: boolean;
   showSignOffButton?: boolean;
+  getRowReviewStatus?: (row: any) => 'pending' | 'reviewed' | 'signed-off';
   showSuggestedActionColumn?: boolean;
   hideInsightPopoverRecommendedAction?: boolean;
   showInsightPopoverDescriptionColumn?: boolean;
@@ -58,6 +61,8 @@ interface UAREmployeeModeV12Props {
   paginationCTALabel?: string;
   onPaginationCTAClick?: () => void;
   externalSelectTrigger?: 'select-all' | 'deselect-all' | null;
+  customRowClassName?: (row: any) => string | undefined;
+  bulkActionMenu?: ReactNode;
 }
 
 export function UAREmployeeModeV12({
@@ -83,6 +88,7 @@ export function UAREmployeeModeV12({
   hideProgressColumn,
   customActionColumn,
   customFirstColumnCell,
+  customCurrentReviewerCell,
   riskColumnHeader,
   hideRiskGauge,
   insightsColumnHeader,
@@ -99,12 +105,14 @@ export function UAREmployeeModeV12({
   showStatusColumn,
   customStatusValues,
   showReviewerLevelColumn,
+  showCurrentReviewerColumn,
   showTwoButtonGroup,
   firstButtonLabel,
   secondButtonLabel,
   groupsTabLabel,
   showInsightsFilter,
   showSignOffButton,
+  getRowReviewStatus,
   showSuggestedActionColumn,
   hideInsightPopoverRecommendedAction,
   showInsightPopoverDescriptionColumn,
@@ -117,6 +125,8 @@ export function UAREmployeeModeV12({
   paginationCTALabel,
   onPaginationCTAClick,
   externalSelectTrigger,
+  customRowClassName,
+  bulkActionMenu,
 }: UAREmployeeModeV12Props) {
   return (
     <UAR
@@ -151,6 +161,7 @@ export function UAREmployeeModeV12({
       hideProgressColumn={hideProgressColumn}
       customActionColumn={customActionColumn}
       customFirstColumnCell={customFirstColumnCell}
+      customCurrentReviewerCell={customCurrentReviewerCell}
       riskColumnHeader={riskColumnHeader}
       hideRiskGauge={hideRiskGauge}
       insightsColumnHeader={insightsColumnHeader}
@@ -167,12 +178,14 @@ export function UAREmployeeModeV12({
       showStatusColumn={showStatusColumn}
       customStatusValues={customStatusValues}
       showReviewerLevelColumn={showReviewerLevelColumn}
+      showCurrentReviewerColumn={showCurrentReviewerColumn}
       showTwoButtonGroup={showTwoButtonGroup}
       firstButtonLabel={firstButtonLabel}
       secondButtonLabel={secondButtonLabel}
       groupsTabLabel={groupsTabLabel}
       showInsightsFilter={showInsightsFilter}
       showSignOffButton={showSignOffButton}
+      getRowReviewStatus={getRowReviewStatus}
       showSuggestedActionColumn={showSuggestedActionColumn}
       hideInsightPopoverRecommendedAction={hideInsightPopoverRecommendedAction}
       showInsightPopoverDescriptionColumn={showInsightPopoverDescriptionColumn}
@@ -185,6 +198,8 @@ export function UAREmployeeModeV12({
       paginationCTALabel={paginationCTALabel}
       onPaginationCTAClick={onPaginationCTAClick}
       externalSelectTrigger={externalSelectTrigger}
+      customRowClassName={customRowClassName}
+      bulkActionMenu={bulkActionMenu}
     />
   );
 }

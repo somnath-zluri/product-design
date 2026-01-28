@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
@@ -94,6 +95,7 @@ interface UARProps {
   hideProgressColumn?: boolean;
   customActionColumn?: (row: any) => ReactNode;
   customFirstColumnCell?: (row: any) => ReactNode;
+  customCurrentReviewerCell?: (row: any) => ReactNode;
   riskColumnHeader?: string;
   hideRiskGauge?: boolean;
   insightsColumnHeader?: string;
@@ -110,6 +112,7 @@ interface UARProps {
   showStatusColumn?: boolean;
   customStatusValues?: Array<'Pending' | 'Certified' | 'Modified' | 'Revoked'>;
   showReviewerLevelColumn?: boolean;
+  showCurrentReviewerColumn?: boolean;
   showTwoButtonGroup?: boolean;
   firstButtonLabel?: string;
   secondButtonLabel?: string;
@@ -117,6 +120,8 @@ interface UARProps {
   hideButtonGroup?: boolean;
   showInsightsFilter?: boolean;
   showSignOffButton?: boolean;
+  /** Returns per-row status for the All / Pending / Reviewed / Not signed off filter and counts. When provided with showSignOffButton, fourth segment and filtering are enabled. */
+  getRowReviewStatus?: (row: any) => 'pending' | 'reviewed' | 'signed-off';
   showSuggestedActionColumn?: boolean;
   hideInsightPopoverRecommendedAction?: boolean;
   showInsightPopoverDescriptionColumn?: boolean;
@@ -129,6 +134,8 @@ interface UARProps {
   paginationCTALabel?: string;
   onPaginationCTAClick?: () => void;
   externalSelectTrigger?: 'select-all' | 'deselect-all' | null;
+  customRowClassName?: (row: any) => string | undefined;
+  bulkActionMenu?: ReactNode;
 }
 
 interface TableData {
@@ -247,6 +254,12 @@ const ownerNames = [
   'Daniel Kim',
   'Maya Patel',
   'Jordan Lee',
+];
+
+const reviewerNames = [
+  'Somnath Nabajja',
+  'Mithilesh Hari',
+  'Anjali Arora',
 ];
 const appIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   Jira: SiJira,
@@ -608,6 +621,7 @@ const frozenTableRows = Array.from({ length: 50 }, (_, index) => {
     progress: Math.min(100, Math.max(0, (index % 10) * 10 + (index % 3) * 5)),
     actionLabel: 'Review',
     reviewerLevel: Math.floor(Math.random() * 5) + 1, // Random reviewer level from 1 to 5
+    currentReviewer: reviewerNames[index % reviewerNames.length],
     userEmail: sampleUserEmails[index % sampleUserEmails.length],
     employmentStatus: 'Active' as const,
     applicationStatus: 'In use',
@@ -702,6 +716,7 @@ export function UAR({
   hideProgressColumn = false,
   customActionColumn,
   customFirstColumnCell,
+  customCurrentReviewerCell,
   riskColumnHeader,
   hideRiskGauge = false,
   insightsColumnHeader,
@@ -718,6 +733,7 @@ export function UAR({
   showStatusColumn = false,
   customStatusValues,
   showReviewerLevelColumn = false,
+  showCurrentReviewerColumn = false,
   showTwoButtonGroup = false,
   firstButtonLabel = 'All',
   secondButtonLabel = 'Pending',
@@ -725,6 +741,7 @@ export function UAR({
   hideButtonGroup = false,
   showInsightsFilter = false,
   showSignOffButton = false,
+  getRowReviewStatus,
   showSuggestedActionColumn = false,
   hideInsightPopoverRecommendedAction = false,
   showInsightPopoverDescriptionColumn = false,
@@ -737,6 +754,8 @@ export function UAR({
   paginationCTALabel = 'Submit',
   onPaginationCTAClick,
   externalSelectTrigger,
+  customRowClassName,
+  bulkActionMenu,
 }: UARProps) {
   const deadlineCard = showDeadlineCard ? (
     <div className="relative flex flex-col items-start">
@@ -790,7 +809,8 @@ export function UAR({
   const [dropdownAlign, setDropdownAlign] = React.useState<'start' | 'center' | 'end'>('center');
   const [sortColumn, setSortColumn] = React.useState<string | null>(initialSortColumn || 'col1');
   const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>(initialSortDirection || 'asc');
-  const [statusFilter, setStatusFilter] = React.useState<'all' | 'pending' | 'reviewed'>('all');
+  const [statusFilter, setStatusFilter] = React.useState<'all' | 'pending' | 'reviewed' | 'signed-off'>('all');
+  const [filterNotSignedOff, setFilterNotSignedOff] = React.useState(false);
   const [viewMode, setViewMode] = React.useState<'review' | 'reviewer-progress'>('review');
   const [selectedInsightFilters, setSelectedInsightFilters] = React.useState<Set<string>>(new Set());
   const insightsScrollRef = React.useRef<HTMLDivElement>(null);
@@ -891,6 +911,11 @@ export function UAR({
         else if (sortColumn === 'col5Days' || sortColumn === 'progress' || sortColumn === 'riskScore' || sortColumn === 'reviewerLevel') {
           aValue = Number(aValue) || 0;
           bValue = Number(bValue) || 0;
+        }
+        // Handle currentReviewer (string sorting)
+        else if (sortColumn === 'currentReviewer') {
+          aValue = String(aValue || '').toLowerCase();
+          bValue = String(bValue || '').toLowerCase();
         }
         // Handle status column (col9)
         else if (sortColumn === 'status') {
@@ -1060,6 +1085,55 @@ export function UAR({
     });
   }, [sortedTableRows, selectedInsightFilters]);
 
+  // Default status for demo counts when getRowReviewStatus is not provided (derive from row id)
+  const getStatus = React.useCallback(
+    (row: any) => {
+      if (getRowReviewStatus) return getRowReviewStatus(row);
+      const n = parseInt(String((row as any).id).replace(/\D/g, ''), 10) || 0;
+      const r = n % 3;
+      return (r === 0 ? 'pending' : r === 1 ? 'reviewed' : 'signed-off') as 'pending' | 'reviewed' | 'signed-off';
+    },
+    [getRowReviewStatus]
+  );
+
+  // Status counts for All / Pending / Reviewed / Not signed off button group
+  const statusCounts = React.useMemo(() => {
+    let all = 0;
+    let pending = 0;
+    let reviewed = 0;
+    let notSignedOff = 0;
+    filteredTableRows.forEach((row) => {
+      all++;
+      const s = getStatus(row);
+      if (s === 'pending') pending++;
+      else if (s === 'reviewed') {
+        reviewed++;
+        notSignedOff++;
+      } else {
+        reviewed++;
+      }
+    });
+    return { all, pending, reviewed, notSignedOff };
+  }, [filteredTableRows, getStatus]);
+
+  // Apply status filter to table data (when not 'all')
+  const dataAfterStatusFilter = React.useMemo(() => {
+    if (statusFilter === 'all') return filteredTableRows;
+    return filteredTableRows.filter((row) => {
+      const s = getStatus(row);
+      if (statusFilter === 'pending') return s === 'pending';
+      if (statusFilter === 'reviewed') return s === 'reviewed' || s === 'signed-off';
+      if (statusFilter === 'signed-off') return s === 'signed-off';
+      return true;
+    });
+  }, [filteredTableRows, statusFilter, getStatus]);
+
+  // Apply "Not Signed-Off" filter from Filters dropdown (exclude signed-off rows)
+  const dataAfterFilters = React.useMemo(() => {
+    if (!filterNotSignedOff) return dataAfterStatusFilter;
+    return dataAfterStatusFilter.filter((row) => getStatus(row) !== 'signed-off');
+  }, [dataAfterStatusFilter, filterNotSignedOff, getStatus]);
+
   // Calculate actual counts for each insight based on table data
   const insightCounts = React.useMemo(() => {
     const counts: Record<string, number> = {};
@@ -1214,8 +1288,8 @@ export function UAR({
     }
   }, [externalSelectTrigger, onSelectAll]);
 
-  // Determine which data set to use based on view mode
-  const currentDataRows = viewMode === 'reviewer-progress' ? reviewerProgressRows : filteredTableRows;
+  // Determine which data set to use based on view mode (status filter + Filters dropdown when applicable)
+  const currentDataRows = viewMode === 'reviewer-progress' ? reviewerProgressRows : dataAfterFilters;
   
   const frozenPageCount = Math.ceil(currentDataRows.length / frozenPageSize);
   const frozenPageStart = frozenPageIndex * frozenPageSize;
@@ -1702,7 +1776,7 @@ export function UAR({
                       )
                     ) : null}
 
-                    <div className="flex flex-1 min-h-0 flex-col px-4 pt-0 pb-4">
+                    <div className="flex flex-1 min-h-0 flex-col px-4 pt-3 pb-4">
                       <Tabs defaultValue="applications">
                         {showRadioCard ? (
                           <TabsContent value="applications">
@@ -1898,7 +1972,7 @@ export function UAR({
                           <>
                             <div className="mt-4 flex h-fit items-center gap-3 px-4 py-0">
                               <span className="text-sm font-medium shrink-0 flex items-center gap-1.5">
-                                <Sparkles className="h-4 w-4" />
+                                <Sparkles className="h-5 w-5 text-primary" />
                                 Insights
                               </span>
                               <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -1925,7 +1999,6 @@ export function UAR({
                                     const isSelected = selectedInsightFilters.has(insightId);
                                     // Get actual count from calculated insight counts
                                     const count = insightCounts[insightId] || 0;
-                                    
                                     return (
                                       <button
                                         key={insightId}
@@ -2111,27 +2184,85 @@ export function UAR({
                                         variant={statusFilter === 'all' ? 'default' : 'outline'}
                                         size="sm"
                                         onClick={() => setStatusFilter('all')}
+                                        className="gap-1.5"
                                       >
                                         {firstButtonLabel}
+                                        <Badge
+                                          className={cn(
+                                            'h-5 min-w-5 px-1.5 text-xs font-medium border-transparent',
+                                            statusFilter === 'all'
+                                              ? 'bg-primary-foreground/20 text-primary-foreground'
+                                              : 'bg-muted text-muted-foreground'
+                                          )}
+                                        >
+                                          {statusCounts.all}
+                                        </Badge>
                                       </Button>
                                       <Button
                                         variant={statusFilter === 'pending' ? 'default' : 'outline'}
                                         size="sm"
                                         onClick={() => setStatusFilter('pending')}
+                                        className="gap-1.5"
                                       >
                                         {secondButtonLabel}
+                                        <Badge
+                                          className={cn(
+                                            'h-5 min-w-5 px-1.5 text-xs font-medium border-transparent',
+                                            statusFilter === 'pending'
+                                              ? 'bg-primary-foreground/20 text-primary-foreground'
+                                              : 'bg-muted text-muted-foreground'
+                                          )}
+                                        >
+                                          {statusCounts.pending}
+                                        </Badge>
                                       </Button>
                                       <Button
                                         variant={statusFilter === 'reviewed' ? 'default' : 'outline'}
                                         size="sm"
                                         onClick={() => setStatusFilter('reviewed')}
+                                        className="gap-1.5"
                                       >
                                         Reviewed
+                                        <Badge
+                                          className={cn(
+                                            'h-5 min-w-5 px-1.5 text-xs font-medium border-transparent',
+                                            statusFilter === 'reviewed'
+                                              ? 'bg-primary-foreground/20 text-primary-foreground'
+                                              : 'bg-muted text-muted-foreground'
+                                          )}
+                                        >
+                                          {statusCounts.reviewed}
+                                        </Badge>
                                       </Button>
+                                      {showSignOffButton && (
+                                        <Button
+                                          variant={statusFilter === 'signed-off' ? 'default' : 'outline'}
+                                          size="sm"
+                                          onClick={() => setStatusFilter('signed-off')}
+                                          className="gap-1.5"
+                                        >
+                                          Not signed off
+                                          <Badge
+                                            className={cn(
+                                              'h-5 min-w-5 px-1.5 text-xs font-medium border-transparent',
+                                              statusFilter === 'signed-off'
+                                                ? 'bg-primary-foreground/20 text-primary-foreground'
+                                                : 'bg-muted text-muted-foreground'
+                                            )}
+                                          >
+                                            {statusCounts.notSignedOff}
+                                          </Badge>
+                                        </Button>
+                                      )}
                                     </ButtonGroup>
                                   )}
                                 </>
                               )}
+                              {bulkActionMenu && (
+                                <>
+                                  {bulkActionMenu}
+                                </>
+              )}
                               {!hideViewByFilter && (
                                 <div className="relative">
                                   <label
@@ -2176,17 +2307,31 @@ export function UAR({
                                   </Select>
                                 </div>
                               )}
-                              <div className="relative">
-                                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                  placeholder={searchPlaceholder || "Search apps"}
-                                  className="h-9 w-[220px] pl-8"
-                                />
-                              </div>
-                              <Button variant="outline" size="sm">
-                                <SlidersHorizontal className="mr-2 h-4 w-4" />
-                                Filters
-                              </Button>
+                              {!bulkActionMenu && (
+                                  <div className="relative">
+                                    <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                      placeholder={searchPlaceholder || "Search apps"}
+                                      className="h-9 w-[220px] pl-8"
+                                    />
+                                  </div>
+                                )}
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                      <SlidersHorizontal className="mr-2 h-4 w-4" />
+                                      Filters
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-56">
+                                    <DropdownMenuCheckboxItem
+                                      checked={filterNotSignedOff}
+                                      onCheckedChange={(checked) => setFilterNotSignedOff(checked === true)}
+                                    >
+                                      Not Signed-Off
+                                    </DropdownMenuCheckboxItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                             </div>
                             <div className="flex flex-wrap items-center gap-3">
                               {showPaginationCTA && (
@@ -2204,6 +2349,7 @@ export function UAR({
                               {showSignOffButton && (
                                 <>
                                   <Button variant="default" size="sm">
+                                    <ShieldCheck className="h-4 w-4 mr-2" />
                                     Sign-off
                                   </Button>
                                   <Separator orientation="vertical" className="h-6" />
@@ -2591,6 +2737,25 @@ export function UAR({
                                         </div>
                                       </TableHead>
                                     ) : null}
+                                    {showCurrentReviewerColumn ? (
+                                      <TableHead 
+                                        className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
+                                        onClick={() => handleSort('currentReviewer')}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <span>Current Reviewer</span>
+                                          {sortColumn === 'currentReviewer' ? (
+                                            sortDirection === 'asc' ? (
+                                              <ArrowUp className="h-3 w-3 text-primary" />
+                                            ) : (
+                                              <ArrowDown className="h-3 w-3 text-primary" />
+                                            )
+                                          ) : (
+                                            <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                                          )}
+                                        </div>
+                                      </TableHead>
+                                    ) : null}
                                     {showSuggestedActionColumn && firstColumnHeader !== 'User' ? (
                                       <TableHead 
                                         className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
@@ -2635,9 +2800,10 @@ export function UAR({
                                 };
                                 
                                 const userName = getUserName(row);
+                                const customRowClass = customRowClassName ? customRowClassName(row) : undefined;
                                 
                                 return (
-                                <TableRow key={row.id}>
+                                <TableRow key={row.id} className={cn(customRowClass, 'hover:bg-transparent data-[state=selected]:bg-transparent')}>
                                   {viewMode === 'reviewer-progress' ? (
                                     <>
                                       <TableCell className="py-2 text-sm">
@@ -3085,6 +3251,24 @@ export function UAR({
                                           </a>
                                         </TableCell>
                                       ) : null}
+                                      {showCurrentReviewerColumn ? (
+                                        <TableCell className="py-2 text-sm">
+                                          {customCurrentReviewerCell ? (
+                                            customCurrentReviewerCell(row)
+                                          ) : (
+                                            <div className="flex items-center gap-2">
+                                              <Avatar className="h-6 w-6">
+                                                <AvatarFallback className="text-[10px]">
+                                                  {getInitials((row as any).currentReviewer || '')}
+                                                </AvatarFallback>
+                                              </Avatar>
+                                              <span className="border-b border-dashed border-current pb-[1px]">
+                                                {(row as any).currentReviewer || '–'}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </TableCell>
+                                      ) : null}
                                       {showSuggestedActionColumn && firstColumnHeader !== 'User' ? (
                                         <TableCell className="py-2 text-sm">
                                           <div className="flex items-center gap-2">
@@ -3254,15 +3438,18 @@ export function UAR({
                           </TableHeader>
                           <TableBody>
                             {table.getRowModel().rows?.length ? (
-                              table.getRowModel().rows.map((row) => (
-                                <TableRow key={row.id}>
+                              table.getRowModel().rows.map((row) => {
+                                const customRowClass = customRowClassName && row.original ? customRowClassName(row.original) : undefined;
+                                return (
+                                <TableRow key={row.id} className={cn(customRowClass, 'hover:bg-transparent data-[state=selected]:bg-transparent')}>
                                   {row.getVisibleCells().map((cell) => (
                                     <TableCell key={cell.id}>
                                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                     </TableCell>
                                   ))}
                                 </TableRow>
-                              ))
+                                );
+                              })
                             ) : (
                               <TableRow>
                                 <TableCell colSpan={finalColumns.length} className="h-24 text-center">

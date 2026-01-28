@@ -16,9 +16,10 @@ const config: StorybookConfig = {
   docs: {
     autodocs: 'tag',
   },
-  async viteFinal(config) {
+  async viteFinal(config, { configType }) {
     return mergeConfig(config, {
-      base: '/product-design/',
+      // Use '/' for local dev so index.json loads; use subpath when building for deploy (e.g. GitHub Pages).
+      base: configType === 'DEVELOPMENT' ? '/' : '/product-design/',
       resolve: {
         alias: {
           '@': path.resolve(process.cwd(), 'src'),

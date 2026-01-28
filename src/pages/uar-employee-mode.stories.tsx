@@ -6,7 +6,7 @@ import { UAREmployeeModeV12 } from './UAREmployeeModeV12';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Sparkles, CheckCircle, XCircle, Pencil, MoreVertical, Copy } from 'lucide-react';
+import { Sparkles, CheckCircle, XCircle, Pencil, MoreVertical, Copy, ChevronDown, Shield, Check } from 'lucide-react';
 import type { Insight } from '@/components/ui/insight-badge';
 import { ALL_INSIGHTS } from '@/components/ui/insight-badge';
 import {
@@ -24,8 +24,51 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { UserCog } from 'lucide-react';
+import { toast } from 'sonner';
+import { Toaster } from '@/components/ui/sonner';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
+
+type ReviewHistoryEntry = {
+  level: string;
+  reviewer: string;
+  decision: 'Modify' | 'Certify' | 'Revoke';
+  reason: string;
+  date: string;
+};
+
+function getReviewHistoryForRow(rowId: string): ReviewHistoryEntry[] {
+  const levels = ['L1', 'L2', 'L3'];
+  const reviewers = ['Somnath Nabajja', 'Anjali Arora', 'Mithilesh Hari'];
+  const decisions: Array<'Certify' | 'Modify' | 'Revoke'> = ['Certify', 'Certify', 'Modify'];
+  const reasons = [
+    'Access verified and appropriate for current role. No changes required.',
+    'Business justification confirmed. User has demonstrated need for continued access.',
+    'Access reviewed with additional scrutiny. Minor modifications recommended and applied.',
+  ];
+  const dates = ['Jan 15, 2026', 'Jan 20, 2026', 'Jan 25, 2026'];
+  const idx = Math.abs(parseInt(rowId.replace('row-', '') || '0', 10)) % 3;
+  return levels.slice(0, idx + 1).map((level, i) => ({
+    level,
+    reviewer: reviewers[i % reviewers.length],
+    decision: decisions[i],
+    reason: reasons[i % reasons.length],
+    date: dates[i % dates.length],
+  }));
+}
 
 const meta = {
   title: 'Pages/UAR - Employee Mode',
@@ -106,6 +149,25 @@ export const CertificationOverviewV12Story: Story = {
   ),
 };
 
+// Sample reviewers for reassignment - all org reviewers
+const allReviewers = [
+  'Somnath Nabajja',
+  'Mithilesh Hari',
+  'Anjali Arora',
+  'Rajesh Kumar',
+  'Priya Sharma',
+  'Amit Patel',
+  'Neha Singh',
+  'Vikram Mehta',
+  'Sneha Reddy',
+  'Arjun Desai',
+  'Kavita Nair',
+  'Rohit Joshi',
+  'Divya Iyer',
+  'Suresh Menon',
+  'Anita Rao',
+].map(name => ({ value: name, label: name }));
+
 // Sample user data for Record Overview - 50 unique users
 const sampleUsers = [
   { firstName: 'Courtney', lastName: 'Henry', id: '1' },
@@ -162,6 +224,15 @@ const sampleUsers = [
 
 const getInitials = (firstName: string, lastName: string) => {
   return `${firstName[0]?.toUpperCase() || ''}${lastName[0]?.toUpperCase() || ''}`;
+};
+
+const getInitialsFromName = (fullName: string) => {
+  if (!fullName) return '';
+  const parts = fullName.trim().split(' ');
+  if (parts.length >= 2) {
+    return `${parts[0][0]?.toUpperCase() || ''}${parts[parts.length - 1][0]?.toUpperCase() || ''}`;
+  }
+  return parts[0][0]?.toUpperCase() || '';
 };
 
 // Helper function to generate user-specific description
@@ -291,7 +362,7 @@ const getRecommendedAction = (insights: Insight[], riskLevel: string): 'Certify'
 export const RecordOverviewV11Story: Story = {
   name: 'Record Overview 1.1',
   render: () => {
-    const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set(['row-1', 'row-2', 'row-3', 'row-5', 'row-7', 'row-9']));
+    const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
     const [rowDecisions, setRowDecisions] = useState<Map<string, 'Certify' | 'Revoke' | 'Modify'>>(new Map());
     const jonathanInitialized = useRef(false);
 
@@ -520,11 +591,18 @@ export const RecordOverviewV11Story: Story = {
 export const RecordOverviewV12Story: Story = {
   name: 'Record Overview 1.2',
   render: () => {
-    const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set(['row-1', 'row-2', 'row-3', 'row-5', 'row-7', 'row-9']));
-    // Pre-populate some rows with actions for demonstration
-    const [certifiedRows, setCertifiedRows] = useState<Set<string>>(new Set(['row-1', 'row-3', 'row-5']));
-    const [revokedRows, setRevokedRows] = useState<Set<string>>(new Set(['row-2', 'row-7']));
-    const [modifiedRows, setModifiedRows] = useState<Set<string>>(new Set(['row-4', 'row-9']));
+    const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+    // Pre-populate ~70% of rows (35 out of 50) with actions for demonstration
+    // This represents rows that have been actioned upon
+    const [certifiedRows, setCertifiedRows] = useState<Set<string>>(new Set([
+      'row-1', 'row-3', 'row-5', 'row-8', 'row-12', 'row-15', 'row-17', 'row-21', 'row-24', 'row-27', 'row-30', 'row-33'
+    ]));
+    const [revokedRows, setRevokedRows] = useState<Set<string>>(new Set([
+      'row-2', 'row-7', 'row-10', 'row-14', 'row-18', 'row-20', 'row-22', 'row-25', 'row-28', 'row-31', 'row-34', 'row-36'
+    ]));
+    const [modifiedRows, setModifiedRows] = useState<Set<string>>(new Set([
+      'row-4', 'row-9', 'row-11', 'row-16', 'row-19', 'row-23', 'row-26', 'row-29', 'row-32', 'row-35', 'row-37'
+    ]));
     const [certifyDialogOpen, setCertifyDialogOpen] = useState(false);
     const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
     const [modifyDialogOpen, setModifyDialogOpen] = useState(false);
@@ -537,6 +615,13 @@ export const RecordOverviewV12Story: Story = {
     const [showReasonError, setShowReasonError] = useState(false);
     const [showRevokeReasonError, setShowRevokeReasonError] = useState(false);
     const [showModifyReasonError, setShowModifyReasonError] = useState(false);
+    const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
+    const [selectedNewReviewer, setSelectedNewReviewer] = useState<string>('');
+    const [reviewerReassignments, setReviewerReassignments] = useState<Map<string, string>>(new Map());
+    const [selectedCountWhenDialogOpened, setSelectedCountWhenDialogOpened] = useState(0);
+    const [showReviewerError, setShowReviewerError] = useState(false);
+    const [reviewHistoryPanelOpen, setReviewHistoryPanelOpen] = useState(false);
+    const [reviewHistoryPanelRowId, setReviewHistoryPanelRowId] = useState<string | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const revokeTextareaRef = useRef<HTMLTextAreaElement>(null);
     const modifyTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -871,6 +956,100 @@ export const RecordOverviewV12Story: Story = {
       setModifyingRow(null);
     };
 
+    const handleReassignClick = () => {
+      setSelectedCountWhenDialogOpened(selectedRows.size);
+      const commonReviewer = getCommonCurrentReviewer();
+      setReassignDialogOpen(true);
+      setSelectedNewReviewer(commonReviewer || '');
+      setShowReviewerError(false);
+    };
+
+    const handleReassignConfirm = () => {
+      if (!selectedNewReviewer) {
+        setShowReviewerError(true);
+        return;
+      }
+      
+      // Check if reassigning to same reviewer
+      const allSameReviewer = Array.from(selectedRows).every(rowId => {
+        const currentReviewer = getCurrentReviewerForRowId(rowId);
+        return currentReviewer === selectedNewReviewer;
+      });
+      
+      if (allSameReviewer) {
+        toast.info('Selected records already have this reviewer assigned');
+        setReassignDialogOpen(false);
+        setSelectedNewReviewer('');
+        setShowReviewerError(false);
+        return;
+      }
+      
+      // Confirm for large number of records
+      if (selectedRows.size >= 20) {
+        const confirmed = window.confirm(`Are you sure you want to reassign ${selectedRows.size} records to ${selectedNewReviewer}?`);
+        if (!confirmed) return;
+      }
+      
+      const newReassignments = new Map(reviewerReassignments);
+      selectedRows.forEach((rowId) => {
+        newReassignments.set(rowId, selectedNewReviewer);
+      });
+      setReviewerReassignments(newReassignments);
+      setReassignDialogOpen(false);
+      setSelectedNewReviewer('');
+      setShowReviewerError(false);
+      
+      // Show success toast
+      toast.success(`Successfully reassigned ${selectedRows.size} ${selectedRows.size === 1 ? 'record' : 'records'} to ${selectedNewReviewer}`);
+      
+      // Don't clear selection - allow user to perform more actions
+    };
+
+    const handleReassignCancel = () => {
+      setReassignDialogOpen(false);
+      setSelectedNewReviewer('');
+      setShowReviewerError(false);
+    };
+
+    // Helper to get reviewer for a row ID (needs row data access)
+    const getCurrentReviewerForRowId = (rowId: string): string => {
+      if (reviewerReassignments.has(rowId)) {
+        return reviewerReassignments.get(rowId)!;
+      }
+      // Get default reviewer from row data - need to find the row
+      // For now, we'll use a pattern based on row ID to get default reviewer
+      const rowIndex = parseInt(rowId.replace('row-', '')) - 1;
+      const defaultReviewers = ['Somnath Nabajja', 'Mithilesh Hari', 'Anjali Arora'];
+      return defaultReviewers[rowIndex % defaultReviewers.length] || '';
+    };
+
+    // Get current reviewer for a row (reassigned or default)
+    const getCurrentReviewer = (row: any): string => {
+      if (reviewerReassignments.has(row.id)) {
+        return reviewerReassignments.get(row.id)!;
+      }
+      // Get default reviewer from row data
+      const reviewer = (row as any).currentReviewer;
+      if (reviewer && reviewer.trim()) {
+        return reviewer;
+      }
+      // Fallback to pattern-based default
+      const rowIndex = parseInt(row.id.replace('row-', '')) - 1;
+      const defaultReviewers = ['Somnath Nabajja', 'Mithilesh Hari', 'Anjali Arora'];
+      return defaultReviewers[rowIndex % defaultReviewers.length] || '';
+    };
+
+    // Get common current reviewer for selected rows (if all have the same)
+    const getCommonCurrentReviewer = (): string | null => {
+      if (selectedRows.size === 0) return null;
+      const reviewers = Array.from(selectedRows).map(rowId => {
+        return getCurrentReviewerForRowId(rowId);
+      }).filter(Boolean);
+      if (reviewers.length === 0) return null;
+      const uniqueReviewers = new Set(reviewers);
+      return uniqueReviewers.size === 1 ? Array.from(uniqueReviewers)[0] : null;
+    };
+
     const handleDialogOpenChange = (open: boolean) => {
       setCertifyDialogOpen(open);
       if (!open) {
@@ -919,6 +1098,9 @@ export const RecordOverviewV12Story: Story = {
       }
     }, [modifyDialogOpen]);
 
+    // No background or opacity on data rows – only table header has background
+    const getRowClassName = (_row: any): string | undefined => undefined;
+
     return (
       <>
       <UAREmployeeModeV12
@@ -957,9 +1139,30 @@ export const RecordOverviewV12Story: Story = {
         hideSuggestedActionBadgeOutline={true}
         filledSparkleIcon={false}
         showSignOffButton={true}
+        getRowReviewStatus={(row) => {
+          if (certifiedRows.has(row.id)) return 'signed-off';
+          if (revokedRows.has(row.id) || modifiedRows.has(row.id)) return 'reviewed';
+          return 'pending';
+        }}
+        showCurrentReviewerColumn={true}
         selectedRows={selectedRows}
         onSelectAll={handleSelectAll}
         onRowSelect={handleRowSelect}
+        customCurrentReviewerCell={(row) => {
+          const reviewer = getCurrentReviewer(row);
+          return (
+            <div className="flex items-center gap-2">
+              <Avatar className="h-6 w-6">
+                <AvatarFallback className="text-[10px]">
+                  {getInitialsFromName(reviewer || '')}
+                </AvatarFallback>
+              </Avatar>
+              <span className="border-b border-dashed border-current pb-[1px]">
+                {reviewer || '–'}
+              </span>
+            </div>
+          );
+        }}
         customFirstColumnCell={(row) => {
           const userIndex = parseInt(row.id.replace('row-', '')) - 1;
           const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
@@ -995,6 +1198,10 @@ export const RecordOverviewV12Story: Story = {
                 <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
                 Certified
               </Badge>
+              <span className="relative inline-block h-4 w-4 shrink-0">
+                <Shield className="h-4 w-4 fill-blue-500 text-blue-500" />
+                <Check className="absolute inset-0 m-auto h-2.5 w-2.5 text-white" strokeWidth={3} />
+              </span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -1030,6 +1237,14 @@ export const RecordOverviewV12Story: Story = {
                   }}>
                     Edit Comment
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setReviewHistoryPanelRowId(row.id);
+                      setReviewHistoryPanelOpen(true);
+                    }}
+                  >
+                    View Review History
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -1044,6 +1259,10 @@ export const RecordOverviewV12Story: Story = {
                 <XCircle className="h-3.5 w-3.5 mr-1.5" />
                 Revoked
               </Badge>
+              <span className="relative inline-block h-4 w-4 shrink-0">
+                <Shield className="h-4 w-4 fill-blue-500 text-blue-500" />
+                <Check className="absolute inset-0 m-auto h-2.5 w-2.5 text-white" strokeWidth={3} />
+              </span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -1077,6 +1296,14 @@ export const RecordOverviewV12Story: Story = {
                   }}>
                     Edit Comment
                   </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setReviewHistoryPanelRowId(row.id);
+                      setReviewHistoryPanelOpen(true);
+                    }}
+                  >
+                    View Review History
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -1091,6 +1318,10 @@ export const RecordOverviewV12Story: Story = {
                 <Pencil className="h-3.5 w-3.5 mr-1.5" />
                 Modified
               </Badge>
+              <span className="relative inline-block h-4 w-4 shrink-0">
+                <Shield className="h-4 w-4 fill-blue-500 text-blue-500" />
+                <Check className="absolute inset-0 m-auto h-2.5 w-2.5 text-white" strokeWidth={3} />
+              </span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -1123,6 +1354,14 @@ export const RecordOverviewV12Story: Story = {
                     setShowModifyReasonError(false);
                   }}>
                     Edit Comment
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setReviewHistoryPanelRowId(row.id);
+                      setReviewHistoryPanelOpen(true);
+                    }}
+                  >
+                    View Review History
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1179,6 +1418,42 @@ export const RecordOverviewV12Story: Story = {
           </div>
         );
       }}
+      customRowClassName={getRowClassName}
+      bulkActionMenu={
+        selectedRows.size > 0 ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="default" size="sm">
+                <UserCog className="h-4 w-4 mr-2" />
+                Bulk Actions ({selectedRows.size})
+                <ChevronDown className="h-4 w-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Review action</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => toast.info('Bulk Certify selected')}>
+                    <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                    Certify
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => toast.info('Bulk Revoke selected')}>
+                    <XCircle className="h-4 w-4 mr-2 text-red-600" />
+                    Revoke
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => toast.info('Bulk Modify selected')}>
+                    <Pencil className="h-4 w-4 mr-2 text-yellow-600" />
+                    Modify
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuItem onClick={handleReassignClick}>
+                Reassign Reviewer
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : undefined
+      }
       />
       <Dialog open={certifyDialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent>
@@ -1386,8 +1661,123 @@ export const RecordOverviewV12Story: Story = {
               Modify
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={reassignDialogOpen} onOpenChange={(open) => {
+          if (!open) {
+            setReassignDialogOpen(false);
+            setSelectedNewReviewer('');
+            setShowReviewerError(false);
+          }
+        }}>
+          <DialogContent
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && selectedNewReviewer && !e.shiftKey) {
+                e.preventDefault();
+                handleReassignConfirm();
+              }
+            }}
+            className="sm:max-w-[500px]"
+          >
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <UserCog className="h-5 w-5" />
+                Reassign Reviewer
+              </DialogTitle>
+              <DialogDescription>
+                Reassign {selectedCountWhenDialogOpened} {selectedCountWhenDialogOpened === 1 ? 'record' : 'records'} to a new reviewer.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="reviewer-select">
+                    Select Reviewer <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="w-full">
+                    <SearchableSelect
+                      options={allReviewers}
+                      value={selectedNewReviewer}
+                      onValueChange={(value) => {
+                        setSelectedNewReviewer(value);
+                        if (showReviewerError && value) {
+                          setShowReviewerError(false);
+                        }
+                      }}
+                      placeholder="Select reviewer..."
+                      searchPlaceholder="Search reviewers..."
+                      emptyText="No reviewer found."
+                      className="w-full"
+                      popoverClassName="w-[300px]"
+                    />
+                  </div>
+                  {showReviewerError && !selectedNewReviewer && (
+                    <p className="text-sm text-destructive">Please select a reviewer</p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={handleReassignCancel}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleReassignConfirm}
+                disabled={!selectedNewReviewer}
+                title={!selectedNewReviewer ? 'Please select a reviewer first' : ''}
+              >
+                Reassign
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <Sheet
+          open={reviewHistoryPanelOpen}
+          onOpenChange={(open) => {
+            setReviewHistoryPanelOpen(open);
+            if (!open) setReviewHistoryPanelRowId(null);
+          }}
+        >
+          <SheetContent side="right" className="w-full sm:max-w-md">
+            <SheetHeader>
+              <SheetTitle>Review History</SheetTitle>
+            </SheetHeader>
+            {reviewHistoryPanelRowId && (
+              <ScrollArea className="h-[calc(100vh-8rem)] mt-4 pr-4">
+                <div className="space-y-4">
+                  {getReviewHistoryForRow(reviewHistoryPanelRowId).map((entry, i) => (
+                    <div
+                      key={i}
+                      className="rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-sm"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-muted-foreground">{entry.level}</span>
+                        <span className="text-xs text-muted-foreground">{entry.date}</span>
+                      </div>
+                      <p className="font-medium">{entry.reviewer}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-muted-foreground">Decision:</span>
+                        <Badge
+                          variant="secondary"
+                          className={cn(
+                            'text-xs',
+                            entry.decision === 'Certify' && 'bg-green-100 text-green-800 border-transparent',
+                            entry.decision === 'Revoke' && 'bg-red-100 text-red-800 border-transparent',
+                            entry.decision === 'Modify' && 'bg-yellow-100 text-yellow-800 border-transparent'
+                          )}
+                        >
+                          {entry.decision}
+                        </Badge>
+                      </div>
+                      <p className="text-muted-foreground text-xs leading-relaxed">{entry.reason}</p>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </SheetContent>
+        </Sheet>
+        <Toaster />
       </>
     );
   },
