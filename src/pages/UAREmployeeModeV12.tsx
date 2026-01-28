@@ -45,6 +45,8 @@ interface UAREmployeeModeV12Props {
   showTwoButtonGroup?: boolean;
   firstButtonLabel?: string;
   secondButtonLabel?: string;
+  showReviewerProgressButton?: boolean;
+  thirdButtonLabel?: string;
   groupsTabLabel?: string;
   showInsightsFilter?: boolean;
   showSignOffButton?: boolean;
@@ -109,6 +111,8 @@ export function UAREmployeeModeV12({
   showTwoButtonGroup,
   firstButtonLabel,
   secondButtonLabel,
+  showReviewerProgressButton,
+  thirdButtonLabel,
   groupsTabLabel,
   showInsightsFilter,
   showSignOffButton,
@@ -182,6 +186,8 @@ export function UAREmployeeModeV12({
       showTwoButtonGroup={showTwoButtonGroup}
       firstButtonLabel={firstButtonLabel}
       secondButtonLabel={secondButtonLabel}
+      showReviewerProgressButton={showReviewerProgressButton}
+      thirdButtonLabel={thirdButtonLabel}
       groupsTabLabel={groupsTabLabel}
       showInsightsFilter={showInsightsFilter}
       showSignOffButton={showSignOffButton}

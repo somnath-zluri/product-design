@@ -46,6 +46,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import * as React from 'react';
 import type { ReactNode } from 'react';
 import { ChevronLeft, Search, ChevronRight, AlignLeft, AlignCenter, AlignRight, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, Star, Sparkles, CheckCircle, XCircle, Pencil, ChevronDown, UserCog, MessageSquarePlus } from 'lucide-react';
@@ -116,6 +117,9 @@ interface UARProps {
   showTwoButtonGroup?: boolean;
   firstButtonLabel?: string;
   secondButtonLabel?: string;
+  /** When false, hides the Reviewer Progress button (can be restored later). */
+  showReviewerProgressButton?: boolean;
+  thirdButtonLabel?: string;
   groupsTabLabel?: string;
   hideButtonGroup?: boolean;
   showInsightsFilter?: boolean;
@@ -737,6 +741,8 @@ export function UAR({
   showTwoButtonGroup = false,
   firstButtonLabel = 'All',
   secondButtonLabel = 'Pending',
+  showReviewerProgressButton = true,
+  thirdButtonLabel,
   groupsTabLabel = 'Groups',
   hideButtonGroup = false,
   showInsightsFilter = false,
@@ -811,7 +817,7 @@ export function UAR({
   const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>(initialSortDirection || 'asc');
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'pending' | 'reviewed' | 'signed-off'>('all');
   const [filterNotSignedOff, setFilterNotSignedOff] = React.useState(false);
-  const [viewMode, setViewMode] = React.useState<'review' | 'reviewer-progress'>('review');
+  const [viewMode, setViewMode] = React.useState<'review' | 'reviewer-progress' | 'group-by-insight'>('review');
   const [selectedInsightFilters, setSelectedInsightFilters] = React.useState<Set<string>>(new Set());
   const insightsScrollRef = React.useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = React.useState(false);
@@ -2170,13 +2176,24 @@ export function UAR({
                                       >
                                         {firstButtonLabel}
                                       </Button>
-                                      <Button
-                                        variant={viewMode === 'reviewer-progress' ? 'default' : 'outline'}
-                                        size="sm"
-                                        onClick={() => setViewMode('reviewer-progress')}
-                                      >
-                                        {secondButtonLabel}
-                                      </Button>
+                                      {showReviewerProgressButton ? (
+                                        <Button
+                                          variant={viewMode === 'reviewer-progress' ? 'default' : 'outline'}
+                                          size="sm"
+                                          onClick={() => setViewMode('reviewer-progress')}
+                                        >
+                                          {secondButtonLabel}
+                                        </Button>
+                                      ) : null}
+                                      {thirdButtonLabel ? (
+                                        <Button
+                                          variant={viewMode === 'group-by-insight' ? 'default' : 'outline'}
+                                          size="sm"
+                                          onClick={() => setViewMode('group-by-insight')}
+                                        >
+                                          {thirdButtonLabel}
+                                        </Button>
+                                      ) : null}
                                     </ButtonGroup>
                                   ) : (
                                     <ButtonGroup>
@@ -2355,38 +2372,113 @@ export function UAR({
                                   <Separator orientation="vertical" className="h-6" />
                                 </>
                               )}
-                              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                <span>
-                                  {frozenPageStart + 1}-{frozenPageEnd} of {currentDataRows.length}
-                                </span>
-                                <div className="flex items-center">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setFrozenPageIndex((prev) => Math.max(0, prev - 1))}
-                                    disabled={frozenPageIndex === 0}
-                                    className="h-9 w-9 p-0 rounded-r-none"
-                                  >
-                                    <ChevronLeft className="h-4 w-4" />
-                                    <span className="sr-only">Previous</span>
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() =>
-                                      setFrozenPageIndex((prev) => Math.min(frozenPageCount - 1, prev + 1))
-                                    }
-                                    disabled={frozenPageIndex >= frozenPageCount - 1}
-                                    className="h-9 w-9 p-0 rounded-l-none border-l-0"
-                                  >
-                                    <ChevronRight className="h-4 w-4" />
-                                    <span className="sr-only">Next</span>
-                                  </Button>
+                              {viewMode !== 'group-by-insight' ? (
+                                <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                                  <span>
+                                    {frozenPageStart + 1}-{frozenPageEnd} of {currentDataRows.length}
+                                  </span>
+                                  <div className="flex items-center">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => setFrozenPageIndex((prev) => Math.max(0, prev - 1))}
+                                      disabled={frozenPageIndex === 0}
+                                      className="h-9 w-9 p-0 rounded-r-none"
+                                    >
+                                      <ChevronLeft className="h-4 w-4" />
+                                      <span className="sr-only">Previous</span>
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        setFrozenPageIndex((prev) => Math.min(frozenPageCount - 1, prev + 1))
+                                      }
+                                      disabled={frozenPageIndex >= frozenPageCount - 1}
+                                      className="h-9 w-9 p-0 rounded-l-none border-l-0"
+                                    >
+                                      <ChevronRight className="h-4 w-4" />
+                                      <span className="sr-only">Next</span>
+                                    </Button>
+                                  </div>
                                 </div>
-                              </div>
+                              ) : null}
                             </div>
                           </div>
                         <div className="flex-1 overflow-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
+                            {viewMode === 'group-by-insight' ? (
+                              <div className="p-4 flex flex-col gap-4">
+                                <div className="flex items-center gap-2">
+                                  <svg width="0" height="0" className="absolute" aria-hidden>
+                                    <defs>
+                                      <linearGradient id="sparkle-gradient-zluri" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stopColor="#a855f7" />
+                                        <stop offset="30%" stopColor="#ec4899" />
+                                        <stop offset="60%" stopColor="#f97316" />
+                                        <stop offset="100%" stopColor="#fb923c" />
+                                      </linearGradient>
+                                    </defs>
+                                  </svg>
+                                  <Sparkles
+                                    className="h-5 w-5 flex-shrink-0"
+                                    style={{
+                                      fill: 'url(#sparkle-gradient-zluri)',
+                                      color: 'transparent',
+                                    }}
+                                  />
+                                  <h2 className="text-lg font-semibold text-foreground">Zluri Insights</h2>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {ALL_INSIGHTS.map((insight, index) => {
+                                  // Placeholder aggregate count (4–5 digits; would come from certification scope in real app)
+                                  const recordCount = 1000 + ((index * 617) % 99000);
+                                  const action = insight.recommendedAction;
+                                  const cardClass = action === 'Certify'
+                                    ? 'border-green-100 bg-green-50/80 dark:bg-green-950/20 dark:border-green-800/50'
+                                    : action === 'Modify'
+                                    ? 'border-amber-100 bg-amber-50/80 dark:bg-amber-950/20 dark:border-amber-800/50'
+                                    : 'border-red-100 bg-red-50/80 dark:bg-red-950/20 dark:border-red-800/50';
+                                  const ctaClass = action === 'Certify'
+                                    ? 'bg-green-600 text-white hover:bg-green-700 focus-visible:ring-green-500 dark:bg-green-600 dark:hover:bg-green-700'
+                                    : action === 'Modify'
+                                    ? 'bg-amber-600 text-white hover:bg-amber-700 focus-visible:ring-amber-500 dark:bg-amber-600 dark:hover:bg-amber-700'
+                                    : 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-500 dark:bg-red-600 dark:hover:bg-red-700';
+                                  return (
+                                    <Card key={insight.name} className={cn('flex flex-col min-h-[120px]', cardClass)}>
+                                      <CardHeader className="pb-2 pt-4 px-4 border-b border-border/40">
+                                        <CardTitle className="text-sm font-semibold leading-tight text-foreground">
+                                          {insight.name}
+                                        </CardTitle>
+                                      </CardHeader>
+                                      <CardContent className="flex-1 px-4 pb-4 pt-3 flex flex-col gap-3">
+                                        <p className="text-xs text-foreground/90 leading-snug">
+                                          {insight.description}
+                                        </p>
+                                        <div className="flex items-center justify-between gap-2 mt-auto">
+                                          <span className="text-xs text-foreground/80 tabular-nums">
+                                            {recordCount.toLocaleString()} {recordCount === 1 ? 'record' : 'records'}
+                                          </span>
+                                          <Button
+                                            variant="default"
+                                            size="sm"
+                                            className={cn('shrink-0 gap-1.5 focus-visible:ring-2 focus-visible:ring-offset-2', ctaClass)}
+                                            onClick={() => {
+                                              // In app: navigate to Record Overview 1.2 with this insight/action
+                                            }}
+                                          >
+                                            {action === 'Certify' && <CheckCircle className="h-3.5 w-3.5" />}
+                                            {action === 'Modify' && <Pencil className="h-3.5 w-3.5" />}
+                                            {action === 'Revoke' && <XCircle className="h-3.5 w-3.5" />}
+                                            {action}
+                                          </Button>
+                                        </div>
+                                      </CardContent>
+                                    </Card>
+                                  );
+                                })}
+                                </div>
+                              </div>
+                            ) : (
                             <Table className="min-w-[900px]">
                             <TableHeader className="sticky top-0 z-20 bg-muted border-b [&_tr]:border-b">
                               <TableRow>
@@ -3100,7 +3192,7 @@ export function UAR({
                                             </span>
                                             <Badge
                                               variant="secondary"
-                                              className={`inline-block w-[64px] border-transparent text-xs font-semibold overflow-hidden text-ellipsis whitespace-nowrap [&>*]:truncate ${
+                                              className={`inline-block shrink-0 border-transparent text-xs font-semibold whitespace-nowrap ${
                                                 (row as any).col9 === 'Overdue'
                                                   ? 'bg-red-100 text-red-700'
                                                   : (row as any).col9 === 'At-risk'
@@ -3386,7 +3478,9 @@ export function UAR({
                               })}
                             </TableBody>
                             </Table>
+                            )}
                           </div>
+                          {viewMode !== 'group-by-insight' ? (
                           <div className="flex items-center justify-between border-t bg-background px-4 py-2 text-sm text-muted-foreground">
                                 <span>
                                   {frozenPageStart + 1}-{frozenPageEnd} of {currentDataRows.length}
@@ -3416,6 +3510,7 @@ export function UAR({
                               </Button>
                             </div>
                           </div>
+                          ) : null}
                         </div>
                       </div>
 

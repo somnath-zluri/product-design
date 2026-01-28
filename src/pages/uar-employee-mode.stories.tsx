@@ -144,8 +144,10 @@ export const CertificationOverviewV12Story: Story = {
       hideViewByFilter={true}
       showReviewerLevelColumn={true}
       showTwoButtonGroup={true}
-      firstButtonLabel="Review"
+      firstButtonLabel="View by app"
       secondButtonLabel="Reviewer Progress"
+      showReviewerProgressButton={false}
+      thirdButtonLabel="View by insight"
     />
   ),
 };
