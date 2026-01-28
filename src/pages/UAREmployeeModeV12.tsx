@@ -65,6 +65,7 @@ interface UAREmployeeModeV12Props {
   externalSelectTrigger?: 'select-all' | 'deselect-all' | null;
   customRowClassName?: (row: any) => string | undefined;
   bulkActionMenu?: ReactNode;
+  onInsightCardActionClick?: (insight: { name: string; description: string; recommendedAction: 'Certify' | 'Modify' | 'Revoke' }, action: string) => void;
 }
 
 export function UAREmployeeModeV12({
@@ -131,6 +132,7 @@ export function UAREmployeeModeV12({
   externalSelectTrigger,
   customRowClassName,
   bulkActionMenu,
+  onInsightCardActionClick,
 }: UAREmployeeModeV12Props) {
   return (
     <UAR
@@ -206,6 +208,7 @@ export function UAREmployeeModeV12({
       externalSelectTrigger={externalSelectTrigger}
       customRowClassName={customRowClassName}
       bulkActionMenu={bulkActionMenu}
+      onInsightCardActionClick={onInsightCardActionClick}
     />
   );
 }

@@ -140,6 +140,8 @@ interface UARProps {
   externalSelectTrigger?: 'select-all' | 'deselect-all' | null;
   customRowClassName?: (row: any) => string | undefined;
   bulkActionMenu?: ReactNode;
+  /** Called when user clicks an insight card CTA (e.g. Revoke). Use to navigate (e.g. to Record Overview 1.2). */
+  onInsightCardActionClick?: (insight: { name: string; description: string; recommendedAction: 'Certify' | 'Modify' | 'Revoke' }, action: string) => void;
 }
 
 interface TableData {
@@ -762,6 +764,7 @@ export function UAR({
   externalSelectTrigger,
   customRowClassName,
   bulkActionMenu,
+  onInsightCardActionClick,
 }: UARProps) {
   const deadlineCard = showDeadlineCard ? (
     <div className="relative flex flex-col items-start">
@@ -2463,7 +2466,7 @@ export function UAR({
                                             size="sm"
                                             className={cn('shrink-0 gap-1.5 focus-visible:ring-2 focus-visible:ring-offset-2', ctaClass)}
                                             onClick={() => {
-                                              // In app: navigate to Record Overview 1.2 with this insight/action
+                                              onInsightCardActionClick?.(insight, action);
                                             }}
                                           >
                                             {action === 'Certify' && <CheckCircle className="h-3.5 w-3.5" />}

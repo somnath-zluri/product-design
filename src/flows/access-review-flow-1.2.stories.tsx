@@ -770,6 +770,7 @@ export const AccessReviewFlow12: Story = {
     if (currentScreen === 'certification') {
       return (
         <UAREmployeeModeV12
+          key="certification"
           headerLayout="inline"
           deadlineCardPosition="header"
           headerBadgeLabel="Active"
@@ -783,6 +784,9 @@ export const AccessReviewFlow12: Story = {
           secondButtonLabel="Reviewer Progress"
           showReviewerProgressButton={false}
           thirdButtonLabel="View by insight"
+          onInsightCardActionClick={() => {
+            setCurrentScreen('record');
+          }}
           customActionColumn={() => (
             <Button 
               size="sm" 
@@ -799,10 +803,11 @@ export const AccessReviewFlow12: Story = {
     // No background or opacity on data rows – only table header has background
     const getRowClassName = (_row: any): string | undefined => undefined;
 
-    // Record Overview screen
+    // Record Overview screen — always show record table (no "View by insight" / cards)
     return (
       <>
         <UAREmployeeModeV12
+          key="record-overview"
           titleOverride="Slack"
           headerLayout="inline"
           deadlineCardPosition="header"
@@ -810,6 +815,7 @@ export const AccessReviewFlow12: Story = {
           showLeftPanel={false}
           showRadioTabs={false}
           showRiskScoreColumn={true}
+          showTwoButtonGroup={false}
           firstColumnHeader="User"
           hideUsersTab={true}
           hideTabBadges={true}

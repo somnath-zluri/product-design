@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { linkTo } from '@storybook/addon-links';
 import { INITIAL_VIEWPORTS } from '@storybook/addon-viewport';
 import { useState, useEffect, useRef } from 'react';
 import { UAREmployeeMode } from './UAREmployeeMode';
@@ -148,6 +149,11 @@ export const CertificationOverviewV12Story: Story = {
       secondButtonLabel="Reviewer Progress"
       showReviewerProgressButton={false}
       thirdButtonLabel="View by insight"
+      onInsightCardActionClick={(_, action) => {
+        if (action === 'Revoke') {
+          linkTo('Pages/UAR - Employee Mode', 'Record Overview 1.2');
+        }
+      }}
     />
   ),
 };
