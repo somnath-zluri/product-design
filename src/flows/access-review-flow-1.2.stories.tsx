@@ -6,7 +6,7 @@ import { UAREmployeeModeV12 } from '@/pages/UAREmployeeModeV12';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
-import { CheckCircle, XCircle, Pencil, MoreVertical, Copy, Shield, Check } from 'lucide-react';
+import { CheckCircle, XCircle, Pencil, MoreVertical, Copy, Shield, Check, MessageSquare } from 'lucide-react';
 import type { Insight } from '@/components/ui/insight-badge';
 import { ALL_INSIGHTS } from '@/components/ui/insight-badge';
 import {
@@ -40,6 +40,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 
 type ReviewHistoryEntry = {
@@ -893,6 +894,29 @@ export const AccessReviewFlow12: Story = {
                     <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
                     Certified
                   </Badge>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label="View reviewer comments">
+                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-80">
+                      <div className="space-y-3">
+                        <p className="font-medium text-sm">Reviewer comments</p>
+                        <ScrollArea className="max-h-[240px] pr-2">
+                          <div className="space-y-3">
+                            {getReviewHistoryForRow(row.id).map((entry, i) => (
+                              <div key={i} className="text-sm border-b border-border pb-2 last:border-0 last:pb-0">
+                                <p className="font-medium text-muted-foreground">{entry.reviewer} · {entry.level}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{entry.date}</p>
+                                <p className="mt-1 leading-snug">{entry.reason}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <span className="relative inline-block h-4 w-4 shrink-0">
                   <Shield className="h-4 w-4 fill-blue-500 text-blue-500" />
                   <Check className="absolute inset-0 m-auto h-2.5 w-2.5 text-white" strokeWidth={3} />
@@ -949,6 +973,29 @@ export const AccessReviewFlow12: Story = {
                     <XCircle className="h-3.5 w-3.5 mr-1.5" />
                     Revoked
                   </Badge>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label="View reviewer comments">
+                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-80">
+                      <div className="space-y-3">
+                        <p className="font-medium text-sm">Reviewer comments</p>
+                        <ScrollArea className="max-h-[240px] pr-2">
+                          <div className="space-y-3">
+                            {getReviewHistoryForRow(row.id).map((entry, i) => (
+                              <div key={i} className="text-sm border-b border-border pb-2 last:border-0 last:pb-0">
+                                <p className="font-medium text-muted-foreground">{entry.reviewer} · {entry.level}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{entry.date}</p>
+                                <p className="mt-1 leading-snug">{entry.reason}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <span className="relative inline-block h-4 w-4 shrink-0">
                   <Shield className="h-4 w-4 fill-blue-500 text-blue-500" />
                   <Check className="absolute inset-0 m-auto h-2.5 w-2.5 text-white" strokeWidth={3} />
@@ -1005,6 +1052,29 @@ export const AccessReviewFlow12: Story = {
                     <Pencil className="h-3.5 w-3.5 mr-1.5" />
                     Modified
                   </Badge>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label="View reviewer comments">
+                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-80">
+                      <div className="space-y-3">
+                        <p className="font-medium text-sm">Reviewer comments</p>
+                        <ScrollArea className="max-h-[240px] pr-2">
+                          <div className="space-y-3">
+                            {getReviewHistoryForRow(row.id).map((entry, i) => (
+                              <div key={i} className="text-sm border-b border-border pb-2 last:border-0 last:pb-0">
+                                <p className="font-medium text-muted-foreground">{entry.reviewer} · {entry.level}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">{entry.date}</p>
+                                <p className="mt-1 leading-snug">{entry.reason}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <span className="relative inline-block h-4 w-4 shrink-0">
                   <Shield className="h-4 w-4 fill-blue-500 text-blue-500" />
                   <Check className="absolute inset-0 m-auto h-2.5 w-2.5 text-white" strokeWidth={3} />
