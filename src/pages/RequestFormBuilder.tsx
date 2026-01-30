@@ -44,6 +44,7 @@ import {
   Search,
   Plus,
   ChevronRight,
+  ChevronLeft,
   ArrowUp,
   ArrowDown,
   EyeOff,
@@ -487,9 +488,11 @@ const FIELD_TYPE_LABELS: Record<FieldType, string> = {
 function FieldConfigurePanel({
   field,
   onUpdateField,
+  onBack,
 }: {
   field: FormField;
   onUpdateField: (id: string, patch: Partial<FormField>) => void;
+  onBack: () => void;
 }) {
   const labelInputRef = React.useRef<HTMLInputElement>(null);
   const update = (patch: Partial<FormField>) => onUpdateField(field.id, patch);
@@ -528,7 +531,18 @@ function FieldConfigurePanel({
   return (
     <>
       <div className="p-4 border-b space-y-2">
-        <h2 className="text-sm font-semibold">Configure</h2>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 -ml-2"
+            onClick={onBack}
+            aria-label="Back to form fields"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <h2 className="text-sm font-semibold">Configure</h2>
+        </div>
         <div className="flex items-center justify-between gap-1">
           <div className="flex items-center gap-0 min-w-0 flex-1">
             <span className="relative inline-grid min-w-0 max-w-full place-items-stretch" style={{ gridTemplateColumns: 'minmax(0, max-content)' }}>
@@ -902,7 +916,11 @@ export function RequestFormBuilder({ className }: RequestFormBuilderProps) {
               {!previewMode && (
               <aside className="w-[360px] shrink-0 flex flex-col border-l bg-muted/30">
                 {selectedField ? (
-                  <FieldConfigurePanel field={selectedField} onUpdateField={updateField} />
+                  <FieldConfigurePanel
+                    field={selectedField}
+                    onUpdateField={updateField}
+                    onBack={() => setSelectedFieldId(null)}
+                  />
                 ) : (
                   <FormLevelConfig
                     formDescription={formDescription}

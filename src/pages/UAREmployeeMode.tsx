@@ -3,6 +3,10 @@ import { UAR } from './UAR';
 interface UAREmployeeModeProps {
   className?: string;
   titleOverride?: string;
+  showBackButton?: boolean;
+  onBackClick?: () => void;
+  breadcrumbParentLabel?: string;
+  breadcrumbParentHref?: string;
   showDeadlineCard?: boolean;
   showHeaderDescription?: boolean;
   deadlineCardPosition?: 'left' | 'right' | 'header';
@@ -22,6 +26,10 @@ interface UAREmployeeModeProps {
 export function UAREmployeeMode({
   className,
   titleOverride,
+  showBackButton,
+  onBackClick,
+  breadcrumbParentLabel,
+  breadcrumbParentHref,
   showDeadlineCard,
   showHeaderDescription,
   deadlineCardPosition,
@@ -44,6 +52,10 @@ export function UAREmployeeMode({
       showVerticalStepper={false}
       showBreadcrumb={false}
       titleOverride={titleOverride ?? "Quaterly Access Review (Q1 FY'26)"}
+      showBackButton={showBackButton}
+      onBackClick={onBackClick}
+      breadcrumbParentLabel={breadcrumbParentLabel}
+      breadcrumbParentHref={breadcrumbParentHref}
       showLeftPanel={false}
       showTableControls={false}
       showTable={false}

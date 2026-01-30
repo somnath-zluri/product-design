@@ -4,6 +4,15 @@ import { UAR } from './UAR';
 interface UAREmployeeModeV12Props {
   className?: string;
   titleOverride?: string;
+  showBackButton?: boolean;
+  onBackClick?: () => void;
+  /** Breadcrumb above title: user lands here from a datatable on the parent page (e.g. "Access Reviews"). */
+  breadcrumbParentLabel?: string;
+  breadcrumbParentHref?: string;
+  breadcrumbMiddleLabel?: string;
+  breadcrumbMiddleHref?: string;
+  onBreadcrumbParentClick?: () => void;
+  onBreadcrumbMiddleClick?: () => void;
   showDeadlineCard?: boolean;
   showHeaderDescription?: boolean;
   deadlineCardPosition?: 'left' | 'right' | 'header';
@@ -71,6 +80,14 @@ interface UAREmployeeModeV12Props {
 export function UAREmployeeModeV12({
   className,
   titleOverride,
+  showBackButton,
+  onBackClick,
+  breadcrumbParentLabel,
+  breadcrumbParentHref,
+  breadcrumbMiddleLabel,
+  breadcrumbMiddleHref,
+  onBreadcrumbParentClick,
+  onBreadcrumbMiddleClick,
   showDeadlineCard,
   showHeaderDescription,
   deadlineCardPosition,
@@ -141,6 +158,14 @@ export function UAREmployeeModeV12({
       showVerticalStepper={false}
       showBreadcrumb={false}
       titleOverride={titleOverride ?? "Quaterly Access Review (Q1 FY'26)"}
+      showBackButton={showBackButton}
+      onBackClick={onBackClick}
+      breadcrumbParentLabel={breadcrumbParentLabel}
+      breadcrumbParentHref={breadcrumbParentHref}
+      breadcrumbMiddleLabel={breadcrumbMiddleLabel}
+      breadcrumbMiddleHref={breadcrumbMiddleHref}
+      onBreadcrumbParentClick={onBreadcrumbParentClick}
+      onBreadcrumbMiddleClick={onBreadcrumbMiddleClick}
       showLeftPanel={showLeftPanel}
       showTableControls={false}
       showTable={false}

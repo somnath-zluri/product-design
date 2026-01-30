@@ -128,7 +128,13 @@ export const DashboardV12Story: Story = {
 export const CertificationOverviewStory: Story = {
   name: 'Certification Overview 1.1',
   render: () => (
-    <UAREmployeeMode headerLayout="inline" deadlineCardPosition="header" headerBadgeLabel="Active" />
+    <UAREmployeeMode
+      breadcrumbParentLabel="Access Reviews"
+      breadcrumbParentHref="#"
+      headerLayout="inline"
+      deadlineCardPosition="header"
+      headerBadgeLabel="Active"
+    />
   ),
 };
 
@@ -136,6 +142,9 @@ export const CertificationOverviewV12Story: Story = {
   name: 'Certification Overview 1.2',
   render: () => (
     <UAREmployeeModeV12
+      showBackButton
+      breadcrumbParentLabel="Access Reviews"
+      breadcrumbParentHref="#"
       headerLayout="inline"
       deadlineCardPosition="header"
       headerBadgeLabel="Active"
@@ -1113,6 +1122,10 @@ export const RecordOverviewV12Story: Story = {
     return (
       <>
       <UAREmployeeModeV12
+        breadcrumbParentLabel="Access reviews"
+        breadcrumbParentHref="#"
+        breadcrumbMiddleLabel="Quarterly Access Review (Q1 FY'26)"
+        breadcrumbMiddleHref="#"
         titleOverride="Slack"
         headerLayout="inline"
         deadlineCardPosition="header"

@@ -67,6 +67,18 @@ interface UARProps {
   showVerticalStepper?: boolean;
   showBreadcrumb?: boolean;
   titleOverride?: string;
+  /** When true, shows a back button adjacent to the page title (e.g. for Certification Overview 1.2). */
+  showBackButton?: boolean;
+  onBackClick?: () => void;
+  /** When set, shows a breadcrumb above the title (e.g. "Access Reviews" > current page). User lands here from a datatable on the parent page. */
+  breadcrumbParentLabel?: string;
+  breadcrumbParentHref?: string;
+  /** Optional middle segment (e.g. "Quarterly Access Review (Q1 FY'26)" between parent and current page). */
+  breadcrumbMiddleLabel?: string;
+  breadcrumbMiddleHref?: string;
+  /** When set, breadcrumb parent/middle links use this instead of href (e.g. for in-flow navigation). */
+  onBreadcrumbParentClick?: () => void;
+  onBreadcrumbMiddleClick?: () => void;
   showLeftPanel?: boolean;
   showTableControls?: boolean;
   showTable?: boolean;
@@ -693,6 +705,14 @@ export function UAR({
   showVerticalStepper = true,
   showBreadcrumb = true,
   titleOverride,
+  showBackButton = false,
+  onBackClick,
+  breadcrumbParentLabel,
+  breadcrumbParentHref,
+  breadcrumbMiddleLabel,
+  breadcrumbMiddleHref,
+  onBreadcrumbParentClick,
+  onBreadcrumbMiddleClick,
   showLeftPanel = true,
   showTableControls = true,
   showTable = true,
@@ -1455,69 +1475,158 @@ export function UAR({
                 {/* Header - Title and Horizontal Stepper */}
                 <header
                   className={cn(
-                    'border-b bg-background px-6 py-4',
-                    headerLayout === 'inline' && 'flex items-start gap-4'
+                    'h-[65px] min-h-[65px] shrink-0 border-b bg-background px-6 flex flex-col justify-center items-start',
+                    breadcrumbParentLabel && 'flex-col gap-3 justify-center items-start',
+                    headerLayout === 'inline' && !breadcrumbParentLabel && 'gap-4'
                   )}
                 >
-                  {headerLayout === 'inline' ? (
-                    <>
-                      <div className="flex flex-col gap-2">
-                        <h1 className="text-2xl font-bold">
-                          {titleOverride ?? verticalSteps[currentVerticalStep]?.label ?? 'Setup Application'}
-                        </h1>
-                        {!moveHeaderDetailsToSidebar ? headerDescriptionBlock : null}
-                        {!moveHeaderDetailsToSidebar ? headerKeyValueBlock : null}
-                        {showHeaderSummary ? (
-                          <div className="flex flex-wrap items-center gap-3">
-                            <div className="flex flex-col gap-1 border-r border-muted-foreground/40 pr-4">
-                              <span className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
-                                Days remaining
-                              </span>
-                              <div className="flex items-center text-xs font-semibold text-foreground">
-                                <Badge variant="secondary" className="border-transparent">
-                                  9 days remaining
-                                </Badge>
-                              </div>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                              <span className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">Status</span>
-                              <div className="flex items-center text-xs font-semibold text-foreground">
-                                <Badge variant="secondary" className="border-transparent">
-                                  On-track
-                                </Badge>
-                              </div>
-                            </div>
-                            <div className="flex flex-col gap-1 border-r border-muted-foreground/40 pr-4">
-                              <span className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">Owner</span>
-                              <div className="flex items-center text-xs font-semibold text-foreground">
-                                <span className="border-b border-dashed border-current pb-[1px]">Alex Morgan</span>
-                              </div>
-                            </div>
-                          </div>
+                  {breadcrumbParentLabel ? (
+                    <Breadcrumb>
+                      <BreadcrumbList className="text-base">
+                        <BreadcrumbItem>
+                          <BreadcrumbLink
+                            href={breadcrumbParentHref ?? '#'}
+                            {...(onBreadcrumbParentClick
+                              ? { onClick: (e: React.MouseEvent) => { e.preventDefault(); onBreadcrumbParentClick(); } }
+                              : {})}
+                          >
+                            {breadcrumbParentLabel}
+                          </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        {breadcrumbMiddleLabel ? (
+                          <>
+                            <BreadcrumbSeparator />
+                            <BreadcrumbItem>
+                              <BreadcrumbLink
+                                href={breadcrumbMiddleHref ?? '#'}
+                                {...(onBreadcrumbMiddleClick
+                                  ? { onClick: (e: React.MouseEvent) => { e.preventDefault(); onBreadcrumbMiddleClick(); } }
+                                  : {})}
+                              >
+                                {breadcrumbMiddleLabel}
+                              </BreadcrumbLink>
+                            </BreadcrumbItem>
+                          </>
                         ) : null}
-                      </div>
-                      {showHorizontalStepper ? (
-                        <div className="flex items-center gap-4">
-                          <HorizontalStepper steps={horizontalSteps} currentStep={currentHorizontalStep} />
-                        </div>
-                      ) : null}
-                    </>
-                  ) : (
-                    <div className="flex items-start justify-between gap-6">
-                      <div className="flex flex-col gap-2">
-                        {headerBadgeLabel ? (
-                          <div className="flex items-center gap-2">
-                            <h1 className="text-2xl font-bold">
-                              {titleOverride ?? verticalSteps[currentVerticalStep]?.label ?? 'Setup Application'}
-                            </h1>
-                            <Badge variant="secondary" className="border-transparent text-xs font-medium">
-                              {headerBadgeLabel}
-                            </Badge>
-                          </div>
-                        ) : (
-                          <h1 className="text-2xl font-bold">
+                        <BreadcrumbSeparator />
+                        <BreadcrumbItem>
+                          <BreadcrumbPage>
                             {titleOverride ?? verticalSteps[currentVerticalStep]?.label ?? 'Setup Application'}
-                          </h1>
+                          </BreadcrumbPage>
+                        </BreadcrumbItem>
+                      </BreadcrumbList>
+                    </Breadcrumb>
+                  ) : null}
+                  {headerLayout === 'inline' ? (
+                    (() => {
+                      const hasInlineHeaderContent =
+                        !breadcrumbParentLabel ||
+                        (!moveHeaderDetailsToSidebar && (headerDescriptionBlock || headerKeyValueBlock)) ||
+                        showHeaderSummary ||
+                        showHorizontalStepper;
+                      if (!hasInlineHeaderContent) return null;
+                      return (
+                        <div className="flex items-center gap-4">
+                          <div className="flex flex-col gap-2">
+                            {!breadcrumbParentLabel && (
+                              <div className="flex items-center gap-2">
+                                {showBackButton && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 shrink-0 -ml-2"
+                                    onClick={() => onBackClick?.()}
+                                    aria-label="Back"
+                                  >
+                                    <ChevronLeft className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                <h1 className="text-2xl font-bold">
+                                  {titleOverride ?? verticalSteps[currentVerticalStep]?.label ?? 'Setup Application'}
+                                </h1>
+                              </div>
+                            )}
+                            {!moveHeaderDetailsToSidebar ? headerDescriptionBlock : null}
+                            {!moveHeaderDetailsToSidebar ? headerKeyValueBlock : null}
+                            {showHeaderSummary ? (
+                              <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex flex-col gap-1 border-r border-muted-foreground/40 pr-4">
+                                  <span className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">
+                                    Days remaining
+                                  </span>
+                                  <div className="flex items-center text-xs font-semibold text-foreground">
+                                    <Badge variant="secondary" className="border-transparent">
+                                      9 days remaining
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">Status</span>
+                                  <div className="flex items-center text-xs font-semibold text-foreground">
+                                    <Badge variant="secondary" className="border-transparent">
+                                      On-track
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col gap-1 border-r border-muted-foreground/40 pr-4">
+                                  <span className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">Owner</span>
+                                  <div className="flex items-center text-xs font-semibold text-foreground">
+                                    <span className="border-b border-dashed border-current pb-[1px]">Alex Morgan</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                          {showHorizontalStepper ? (
+                            <div className="flex items-center gap-4">
+                              <HorizontalStepper steps={horizontalSteps} currentStep={currentHorizontalStep} />
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="flex items-center justify-between gap-6">
+                      <div className="flex flex-col gap-2">
+                        {!breadcrumbParentLabel && (
+                          headerBadgeLabel ? (
+                            <div className="flex items-center gap-2">
+                              {showBackButton && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 shrink-0 -ml-2"
+                                  onClick={() => onBackClick?.()}
+                                  aria-label="Back"
+                                >
+                                  <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <h1 className="text-2xl font-bold">
+                                {titleOverride ?? verticalSteps[currentVerticalStep]?.label ?? 'Setup Application'}
+                              </h1>
+                              <Badge variant="secondary" className="border-transparent text-xs font-medium">
+                                {headerBadgeLabel}
+                              </Badge>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              {showBackButton && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 shrink-0 -ml-2"
+                                  onClick={() => onBackClick?.()}
+                                  aria-label="Back"
+                                >
+                                  <ChevronLeft className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <h1 className="text-2xl font-bold">
+                                {titleOverride ?? verticalSteps[currentVerticalStep]?.label ?? 'Setup Application'}
+                              </h1>
+                            </div>
+                          )
                         )}
                         {!moveHeaderDetailsToSidebar ? headerDescriptionBlock : null}
                         {showHeaderSummary ? (

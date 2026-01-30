@@ -293,7 +293,9 @@ export const AccessReviewFlow12: Story = {
   name: 'Access Review Flow 1.2',
   render: () => {
     const [currentScreen, setCurrentScreen] = useState<FlowScreen>('dashboard');
-    
+    const [selectedCertificationName, setSelectedCertificationName] = useState<string>("Quarterly Access Review (Q1 FY'26)");
+    const [selectedAppName, setSelectedAppName] = useState<string>('Slack');
+
     // Record Overview state
     const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
     // Pre-populate ~70% of rows (35 out of 50) with actions for demonstration
@@ -755,10 +757,13 @@ export const AccessReviewFlow12: Story = {
           hideSortByFilter={true}
           hideButtonGroup={true}
           customActionColumn={(row) => (
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               className="h-7 text-xs"
-              onClick={() => setCurrentScreen('certification')}
+              onClick={() => {
+                setSelectedCertificationName((row as any).col1 ?? (row as any).appBaseName ?? "Quarterly Access Review (Q1 FY'26)");
+                setCurrentScreen('certification');
+              }}
             >
               {(row as any).actionLabel || 'Review'}
             </Button>
@@ -771,6 +776,10 @@ export const AccessReviewFlow12: Story = {
       return (
         <UAREmployeeModeV12
           key="certification"
+          breadcrumbParentLabel="Access reviews"
+          breadcrumbParentHref="#"
+          onBreadcrumbParentClick={() => setCurrentScreen('dashboard')}
+          titleOverride={selectedCertificationName}
           headerLayout="inline"
           deadlineCardPosition="header"
           headerBadgeLabel="Active"
@@ -785,13 +794,17 @@ export const AccessReviewFlow12: Story = {
           showReviewerProgressButton={false}
           thirdButtonLabel="View by insight"
           onInsightCardActionClick={() => {
+            setSelectedAppName('Slack');
             setCurrentScreen('record');
           }}
-          customActionColumn={() => (
-            <Button 
-              size="sm" 
+          customActionColumn={(row) => (
+            <Button
+              size="sm"
               className="h-7 text-xs"
-              onClick={() => setCurrentScreen('record')}
+              onClick={() => {
+                setSelectedAppName((row as any).appBaseName ?? (row as any).col1 ?? 'Application');
+                setCurrentScreen('record');
+              }}
             >
               Review
             </Button>
@@ -808,7 +821,13 @@ export const AccessReviewFlow12: Story = {
       <>
         <UAREmployeeModeV12
           key="record-overview"
-          titleOverride="Slack"
+          breadcrumbParentLabel="Access reviews"
+          breadcrumbParentHref="#"
+          breadcrumbMiddleLabel={selectedCertificationName}
+          breadcrumbMiddleHref="#"
+          onBreadcrumbParentClick={() => setCurrentScreen('dashboard')}
+          onBreadcrumbMiddleClick={() => setCurrentScreen('certification')}
+          titleOverride={selectedAppName || 'Slack'}
           headerLayout="inline"
           deadlineCardPosition="header"
           sidebarHasTabs={false}
