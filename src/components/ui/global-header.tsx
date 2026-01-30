@@ -5,9 +5,11 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 interface GlobalHeaderProps {
   className?: string;
+  /** Optional actions (e.g. Preview, Save changes) rendered before the avatar */
+  actions?: React.ReactNode;
 }
 
-export function GlobalHeader({ className }: GlobalHeaderProps) {
+export function GlobalHeader({ className, actions }: GlobalHeaderProps) {
   return (
     <header className={`flex h-16 items-center justify-between border-b border-border/40 bg-[#1a1a1a] px-6 ${className || ''}`}>
       {/* Left: Logo */}
@@ -26,8 +28,9 @@ export function GlobalHeader({ className }: GlobalHeaderProps) {
         </div>
       </div>
 
-      {/* Right: Avatar */}
-      <div className="flex items-center">
+      {/* Right: Actions + Avatar */}
+      <div className="flex items-center gap-2">
+        {actions}
         <Avatar>
           <AvatarFallback className="bg-[#2a2a2a] text-white">U</AvatarFallback>
         </Avatar>

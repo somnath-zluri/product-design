@@ -2261,7 +2261,7 @@ export function UAR({
                                           onClick={() => setStatusFilter('signed-off')}
                                           className="gap-1.5"
                                         >
-                                          Not signed off
+                                          Signed-off
                                           <Badge
                                             className={cn(
                                               'h-5 min-w-5 px-1.5 text-xs font-medium border-transparent',

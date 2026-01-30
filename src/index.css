@@ -60,3 +60,12 @@
   }
 }
 
+/* Storybook error/screen: prevent text overflow clipping */
+#storybook-root [class*="error"] *,
+#storybook-root [class*="Error"] *,
+#storybook-root .sb-show-errordisplay * {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
