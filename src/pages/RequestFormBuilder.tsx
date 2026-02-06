@@ -55,8 +55,15 @@ import {
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
+import { Info } from 'lucide-react';
 
 const STORAGE_KEY = 'request-form-builder-config';
+
+const ALWAYS_VISIBLE_FIELD_IDS = ['application', 'requested-for'] as const;
+
+function isAlwaysVisibleFieldId(id: string): boolean {
+  return (ALWAYS_VISIBLE_FIELD_IDS as readonly string[]).includes(id);
+}
 
 // --- Types ---
 export type FieldType = 'singleLineText' | 'date' | 'singleSelect' | 'radio';
@@ -82,6 +89,10 @@ export interface FormField {
 
 interface RequestFormBuilderProps {
   className?: string;
+  /** When true, show an information banner between header and body when any form field has been edited. */
+  showBannerWhenFieldEdited?: boolean;
+  /** Content of the banner when showBannerWhenFieldEdited is true. */
+  bannerContent?: string;
 }
 
 function generateId(): string {
@@ -315,18 +326,21 @@ function FormLevelConfig({
   formDescription,
   setFormDescription,
   showAllVisible,
-  setShowAllVisible,
+  onShowAllChange,
+  alwaysVisibleFieldIds,
   fieldSearch,
   setFieldSearch,
   fields,
   visibleCount,
   onToggleFieldVisibility,
   onAddCustomField,
+  onReorderField,
 }: {
   formDescription: string;
   setFormDescription: (v: string) => void;
   showAllVisible: boolean;
-  setShowAllVisible: (v: boolean) => void;
+  onShowAllChange: (checked: boolean) => void;
+  alwaysVisibleFieldIds: string[];
   fieldSearch: string;
   setFieldSearch: (v: string) => void;
   fields: FormField[];
@@ -412,7 +426,7 @@ function FormLevelConfig({
                   <span className="text-xs text-muted-foreground">{visibleCount}/{fields.length} fields visible</span>
                   <div className="flex items-center gap-2">
                     <span className="text-xs">Show all</span>
-                    <Switch checked={showAllVisible} onCheckedChange={setShowAllVisible} className="shrink-0" />
+                    <Switch checked={showAllVisible} onCheckedChange={onShowAllChange} className="shrink-0" />
                   </div>
                 </div>
                 <div className="relative mb-3">
@@ -457,7 +471,8 @@ function FormLevelConfig({
                         {field.label}
                       </span>
                       <Switch
-                        checked={field.visible}
+                        checked={alwaysVisibleFieldIds.includes(field.id) ? true : field.visible}
+                        disabled={alwaysVisibleFieldIds.includes(field.id)}
                         onCheckedChange={() => onToggleFieldVisibility(field.id)}
                         className="shrink-0"
                         onClick={(e) => e.stopPropagation()}
@@ -465,7 +480,10 @@ function FormLevelConfig({
                     </li>
                   ))}
                 </ul>
-                <Button variant="outline" size="sm" className="w-full mt-3" onClick={onAddCustomField}>
+                <p className="text-xs text-muted-foreground mt-3 mb-1">
+                  Custom fields only apply to this app&apos;s form and won&apos;t change the default form used by other apps.
+                </p>
+                <Button variant="outline" size="sm" className="w-full mt-1" onClick={onAddCustomField}>
                   Add Custom Field
                 </Button>
               </AccordionContent>
@@ -712,20 +730,27 @@ function FieldConfigurePanel({
 }
 
 // --- Main page ---
-export function RequestFormBuilder({ className }: RequestFormBuilderProps) {
+export function RequestFormBuilder({
+  className,
+  showBannerWhenFieldEdited = false,
+  bannerContent = 'Hello world!',
+}: RequestFormBuilderProps) {
+  const [hasEditedAnyField, setHasEditedAnyField] = React.useState(false);
   const [fields, setFields] = React.useState<FormField[]>(() => {
+    const normalizeAlwaysVisible = (list: FormField[]): FormField[] =>
+      list.map((f) => ({ ...f, visible: isAlwaysVisibleFieldId(f.id) ? true : f.visible }));
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as { fields?: FormField[]; formDescription?: string };
         if (Array.isArray(parsed.fields) && parsed.fields.length > 0) {
-          return parsed.fields;
+          return normalizeAlwaysVisible(parsed.fields);
         }
       }
     } catch {
       // ignore invalid stored data
     }
-    return DEFAULT_FIELDS;
+    return normalizeAlwaysVisible(DEFAULT_FIELDS);
   });
   const [formDescription, setFormDescription] = React.useState(() => {
     try {
@@ -745,15 +770,36 @@ export function RequestFormBuilder({ className }: RequestFormBuilderProps) {
   const [fieldSearch, setFieldSearch] = React.useState('');
   const [previewMode, setPreviewMode] = React.useState(false);
 
+  const baselineRef = React.useRef<{ fields: FormField[]; formDescription: string } | null>(null);
+
+  React.useEffect(() => {
+    baselineRef.current = { fields: structuredClone(fields), formDescription };
+  }, []);
+
+  React.useEffect(() => {
+    if (!showBannerWhenFieldEdited || !baselineRef.current) return;
+    const base = baselineRef.current;
+    if (
+      formDescription === base.formDescription &&
+      JSON.stringify(fields) === JSON.stringify(base.fields)
+    ) {
+      setHasEditedAnyField(false);
+    }
+  }, [fields, formDescription, showBannerWhenFieldEdited]);
+
   // Single source of order: right panel list and preview both use `fields` array order.
   // Preview shows fields in that same order, optionally filtered by visibility when "Show all" is off.
   const visibleFields = showAllVisible ? fields : fields.filter((f) => f.visible);
   const visibleCount = fields.filter((f) => f.visible).length;
   const selectedField = selectedFieldId ? fields.find((f) => f.id === selectedFieldId) : null;
 
-  const updateField = React.useCallback((id: string, patch: Partial<FormField>) => {
-    setFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
-  }, []);
+  const updateField = React.useCallback(
+    (id: string, patch: Partial<FormField>) => {
+      if (showBannerWhenFieldEdited) setHasEditedAnyField(true);
+      setFields((prev) => prev.map((f) => (f.id === id ? { ...f, ...patch } : f)));
+    },
+    [showBannerWhenFieldEdited]
+  );
 
   const moveField = React.useCallback((id: string, direction: 'up' | 'down') => {
     setFields((prev) => {
@@ -767,25 +813,56 @@ export function RequestFormBuilder({ className }: RequestFormBuilderProps) {
     });
   }, []);
 
-  const reorderField = React.useCallback((fieldId: string, newIndex: number) => {
-    setFields((prev) => {
-      const fromIdx = prev.findIndex((f) => f.id === fieldId);
-      if (fromIdx === -1 || fromIdx === newIndex) return prev;
-      const next = [...prev];
-      const [removed] = next.splice(fromIdx, 1);
-      next.splice(newIndex, 0, removed);
-      return next;
-    });
-  }, []);
+  const reorderField = React.useCallback(
+    (fieldId: string, newIndex: number) => {
+      if (showBannerWhenFieldEdited) setHasEditedAnyField(true);
+      setFields((prev) => {
+        const fromIdx = prev.findIndex((f) => f.id === fieldId);
+        if (fromIdx === -1 || fromIdx === newIndex) return prev;
+        const next = [...prev];
+        const [removed] = next.splice(fromIdx, 1);
+        next.splice(newIndex, 0, removed);
+        return next;
+      });
+    },
+    [showBannerWhenFieldEdited]
+  );
 
-  const toggleFieldVisibility = React.useCallback((id: string) => {
-    setFields((prev) => prev.map((f) => (f.id === id ? { ...f, visible: !f.visible } : f)));
-  }, []);
+  const toggleFieldVisibility = React.useCallback(
+    (id: string) => {
+      if (isAlwaysVisibleFieldId(id)) return;
+      if (showBannerWhenFieldEdited) setHasEditedAnyField(true);
+      setFields((prev) => prev.map((f) => (f.id === id ? { ...f, visible: !f.visible } : f)));
+    },
+    [showBannerWhenFieldEdited]
+  );
 
-  const deleteField = React.useCallback((id: string) => {
-    setFields((prev) => prev.filter((f) => f.id !== id));
-    if (selectedFieldId === id) setSelectedFieldId(null);
-  }, [selectedFieldId]);
+  const setAllFieldsVisibility = React.useCallback(
+    (visible: boolean) => {
+      if (showBannerWhenFieldEdited) setHasEditedAnyField(true);
+      setFields((prev) =>
+        prev.map((f) => ({ ...f, visible: isAlwaysVisibleFieldId(f.id) ? true : visible }))
+      );
+    },
+    [showBannerWhenFieldEdited]
+  );
+
+  const handleShowAllChange = React.useCallback(
+    (checked: boolean) => {
+      setShowAllVisible(checked);
+      setAllFieldsVisibility(checked);
+    },
+    [setAllFieldsVisibility]
+  );
+
+  const deleteField = React.useCallback(
+    (id: string) => {
+      if (showBannerWhenFieldEdited) setHasEditedAnyField(true);
+      setFields((prev) => prev.filter((f) => f.id !== id));
+      if (selectedFieldId === id) setSelectedFieldId(null);
+    },
+    [selectedFieldId, showBannerWhenFieldEdited]
+  );
 
   const handleDeleteField = React.useCallback(
     (id: string) => {
@@ -819,13 +896,23 @@ export function RequestFormBuilder({ className }: RequestFormBuilderProps) {
         JSON.stringify({ fields: withErrors, formDescription })
       );
       toast.success('Changes saved');
+      baselineRef.current = { fields: structuredClone(withErrors), formDescription };
+      setHasEditedAnyField(false);
     } catch (err) {
       console.error('Save failed:', err);
       toast.error('Failed to save');
     }
   }, [fields, formDescription]);
 
+  const handleRevert = React.useCallback(() => {
+    if (!baselineRef.current) return;
+    setFields(structuredClone(baselineRef.current.fields));
+    setFormDescription(baselineRef.current.formDescription);
+    setHasEditedAnyField(false);
+  }, []);
+
   const addCustomField = React.useCallback(() => {
+    if (showBannerWhenFieldEdited) setHasEditedAnyField(true);
     const newField: FormField = {
       id: generateId(),
       label: 'New Custom Field',
@@ -838,7 +925,7 @@ export function RequestFormBuilder({ className }: RequestFormBuilderProps) {
     };
     setFields((prev) => [...prev, newField]);
     setSelectedFieldId(newField.id);
-  }, []);
+  }, [showBannerWhenFieldEdited]);
 
   return (
     <div className={cn('flex h-screen w-full flex-col bg-background overflow-hidden', className)}>
@@ -871,11 +958,28 @@ export function RequestFormBuilder({ className }: RequestFormBuilderProps) {
                 >
                   {previewMode ? 'Edit' : 'Preview'}
                 </Button>
+                {showBannerWhenFieldEdited && (
+                  <Button variant="outline" size="sm" onClick={handleRevert}>
+                    Revert
+                  </Button>
+                )}
                 <Button size="sm" onClick={handleSave}>
                   Save changes
                 </Button>
               </div>
             </header>
+
+            {showBannerWhenFieldEdited && hasEditedAnyField && (
+              <div className="shrink-0 px-6 py-2 border-b">
+                <div
+                  role="alert"
+                  className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 py-3 px-4 dark:border-blue-800 dark:bg-blue-950/40"
+                >
+                  <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden />
+                  <span className="text-sm text-blue-800 dark:text-blue-200">{bannerContent}</span>
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-1 overflow-hidden min-h-0">
               {/* Preview column */}
@@ -926,7 +1030,8 @@ export function RequestFormBuilder({ className }: RequestFormBuilderProps) {
                     formDescription={formDescription}
                     setFormDescription={setFormDescription}
                     showAllVisible={showAllVisible}
-                    setShowAllVisible={setShowAllVisible}
+                    onShowAllChange={handleShowAllChange}
+                    alwaysVisibleFieldIds={[...ALWAYS_VISIBLE_FIELD_IDS]}
                     fieldSearch={fieldSearch}
                     setFieldSearch={setFieldSearch}
                     fields={fields}

@@ -21,6 +21,20 @@ const meta = {
     ),
   ],
   tags: ['autodocs'],
+  argTypes: {
+    showBannerWhenFieldEdited: {
+      description: 'When true, show an information banner when any form field is edited.',
+      control: 'boolean',
+    },
+    bannerContent: {
+      description: 'Content of the banner (non-dismissible).',
+      control: 'text',
+    },
+    formFieldDescription: {
+      description: 'Form field description is configured in the right panel when a field is selected (General → Description).',
+      control: 'text',
+    },
+  },
 } satisfies Meta<typeof RequestFormBuilder>;
 
 export default meta;
@@ -28,5 +42,5 @@ type Story = StoryObj<typeof meta>;
 
 export const RequestFormBuilderStory: Story = {
   name: 'Request Form Builder',
-  render: () => <RequestFormBuilder />,
+  render: () => <RequestFormBuilder showBannerWhenFieldEdited bannerContent="Hello World!" />,
 };
