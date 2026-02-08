@@ -26,8 +26,12 @@ const meta = {
       description: 'When true, show an information banner when any form field is edited.',
       control: 'boolean',
     },
-    bannerContent: {
-      description: 'Content of the banner (non-dismissible).',
+    bannerTitle: {
+      description: 'Title of the banner (non-dismissible, expandable for details).',
+      control: 'text',
+    },
+    bannerDescription: {
+      description: 'Description shown in the banner below the title.',
       control: 'text',
     },
     formFieldDescription: {
@@ -42,5 +46,14 @@ type Story = StoryObj<typeof meta>;
 
 export const RequestFormBuilderStory: Story = {
   name: 'Request Form Builder',
-  render: () => <RequestFormBuilder showBannerWhenFieldEdited bannerContent="Hello World!" />,
+  args: {
+    showBannerWhenFieldEdited: true,
+  },
+  render: (args) => (
+    <RequestFormBuilder
+      showBannerWhenFieldEdited={args.showBannerWhenFieldEdited}
+      bannerTitle={args.bannerTitle}
+      bannerDescription={args.bannerDescription}
+    />
+  ),
 };

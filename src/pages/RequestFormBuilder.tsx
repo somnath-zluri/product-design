@@ -45,6 +45,8 @@ import {
   Plus,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   ArrowUp,
   ArrowDown,
   EyeOff,
@@ -52,10 +54,20 @@ import {
   Pencil,
   Copy,
   AlertCircle,
+  Info,
 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Info } from 'lucide-react';
 
 const STORAGE_KEY = 'request-form-builder-config';
 
@@ -87,12 +99,22 @@ export interface FormField {
   errorMessage?: string | null;
 }
 
+const BANNER_DETAILS = [
+  { label: 'Add field', text: 'Will be added to custom forms, but stays hidden by default.' },
+  { label: 'Edit field properties', text: 'Changes will apply to this field across all forms.' },
+  { label: 'Mark as required', text: "Requirement won't apply to custom forms." },
+  { label: 'Reorder', text: "Order changes won't reflect in custom forms." },
+  { label: 'Delete', text: 'Deletes this field from all forms.' },
+] as const;
+
 interface RequestFormBuilderProps {
   className?: string;
   /** When true, show an information banner between header and body when any form field has been edited. */
   showBannerWhenFieldEdited?: boolean;
-  /** Content of the banner when showBannerWhenFieldEdited is true. */
-  bannerContent?: string;
+  /** Title of the banner when showBannerWhenFieldEdited is true. */
+  bannerTitle?: string;
+  /** Description of the banner when showBannerWhenFieldEdited is true. */
+  bannerDescription?: string;
 }
 
 function generateId(): string {
@@ -730,12 +752,20 @@ function FieldConfigurePanel({
 }
 
 // --- Main page ---
+const DEFAULT_BANNER_TITLE = 'Updates in the default form can have different outcomes in custom forms.';
+const DEFAULT_BANNER_DESCRIPTION =
+  'Some changes apply everywhere, others affect only the field itself or require manual adjustments per app.';
+
 export function RequestFormBuilder({
   className,
   showBannerWhenFieldEdited = false,
-  bannerContent = 'Hello world!',
+  bannerTitle = DEFAULT_BANNER_TITLE,
+  bannerDescription = DEFAULT_BANNER_DESCRIPTION,
 }: RequestFormBuilderProps) {
   const [hasEditedAnyField, setHasEditedAnyField] = React.useState(false);
+  const [bannerExpanded, setBannerExpanded] = React.useState(false);
+  const [saveConfirmOpen, setSaveConfirmOpen] = React.useState(false);
+  const pendingSaveRef = React.useRef<{ fields: FormField[]; formDescription: string } | null>(null);
   const [fields, setFields] = React.useState<FormField[]>(() => {
     const normalizeAlwaysVisible = (list: FormField[]): FormField[] =>
       list.map((f) => ({ ...f, visible: isAlwaysVisibleFieldId(f.id) ? true : f.visible }));
@@ -890,6 +920,11 @@ export function RequestFormBuilder({
       toast.error('Fix fields with empty labels before saving');
       return;
     }
+    if (showBannerWhenFieldEdited) {
+      pendingSaveRef.current = { fields: withErrors, formDescription };
+      setSaveConfirmOpen(true);
+      return;
+    }
     try {
       localStorage.setItem(
         STORAGE_KEY,
@@ -902,7 +937,30 @@ export function RequestFormBuilder({
       console.error('Save failed:', err);
       toast.error('Failed to save');
     }
-  }, [fields, formDescription]);
+  }, [fields, formDescription, showBannerWhenFieldEdited]);
+
+  const handleConfirmSave = React.useCallback(() => {
+    const pending = pendingSaveRef.current;
+    if (!pending) return;
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ fields: pending.fields, formDescription: pending.formDescription })
+      );
+      toast.success('Changes saved');
+      baselineRef.current = {
+        fields: structuredClone(pending.fields),
+        formDescription: pending.formDescription,
+      };
+      setHasEditedAnyField(false);
+    } catch (err) {
+      console.error('Save failed:', err);
+      toast.error('Failed to save');
+    } finally {
+      pendingSaveRef.current = null;
+      setSaveConfirmOpen(false);
+    }
+  }, []);
 
   const handleRevert = React.useCallback(() => {
     if (!baselineRef.current) return;
@@ -951,6 +1009,11 @@ export function RequestFormBuilder({
                 </BreadcrumbList>
               </Breadcrumb>
               <div className="flex items-center gap-2 shrink-0">
+                {showBannerWhenFieldEdited && (
+                  <Button variant="outline" size="sm" onClick={handleRevert}>
+                    Revert
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   size="sm"
@@ -958,11 +1021,6 @@ export function RequestFormBuilder({
                 >
                   {previewMode ? 'Edit' : 'Preview'}
                 </Button>
-                {showBannerWhenFieldEdited && (
-                  <Button variant="outline" size="sm" onClick={handleRevert}>
-                    Revert
-                  </Button>
-                )}
                 <Button size="sm" onClick={handleSave}>
                   Save changes
                 </Button>
@@ -973,10 +1031,43 @@ export function RequestFormBuilder({
               <div className="shrink-0 px-6 py-2 border-b">
                 <div
                   role="alert"
-                  className="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 py-3 px-4 dark:border-blue-800 dark:bg-blue-950/40"
+                  className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 py-3 px-4 dark:border-blue-800 dark:bg-blue-950/40"
                 >
-                  <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" aria-hidden />
-                  <span className="text-sm text-blue-800 dark:text-blue-200">{bannerContent}</span>
+                  <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" aria-hidden />
+                  <div className="flex-1 min-w-0 flex flex-col gap-2">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-blue-800 dark:text-blue-200">
+                        {bannerTitle}
+                      </p>
+                      <p className="text-sm text-blue-800 dark:text-blue-200">{bannerDescription}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setBannerExpanded((e) => !e)}
+                      className="flex items-center gap-1.5 text-sm font-medium text-blue-800 dark:text-blue-200 hover:underline focus:outline-none focus:underline"
+                      aria-expanded={bannerExpanded}
+                      aria-label={bannerExpanded ? 'Hide details' : 'Show details'}
+                    >
+                      {bannerExpanded ? (
+                        <>
+                          Hide details <ChevronUp className="h-4 w-4" />
+                        </>
+                      ) : (
+                        <>
+                          Show details <ChevronDown className="h-4 w-4" />
+                        </>
+                      )}
+                    </button>
+                    {bannerExpanded && (
+                      <ul className="list-disc pl-4 space-y-1 text-sm text-blue-800 dark:text-blue-200">
+                        {BANNER_DETAILS.map(({ label, text }) => (
+                          <li key={label}>
+                            <span className="font-medium">{label}</span> — {text}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -1047,6 +1138,30 @@ export function RequestFormBuilder({
           </main>
         </Sidebar>
       </SidebarProvider>
+
+      <AlertDialog open={saveConfirmOpen} onOpenChange={setSaveConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save changes?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p class="text-foreground">{bannerTitle}</p>
+                <ul className="list-disc pl-4 space-y-1 text-xs text-foreground">
+                  {BANNER_DETAILS.map(({ label, text }) => (
+                    <li key={label}>
+                      <span className="font-medium">{label}</span> — {text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSave}>Save</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
