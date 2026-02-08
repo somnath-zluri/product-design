@@ -502,9 +502,6 @@ function FormLevelConfig({
                     </li>
                   ))}
                 </ul>
-                <p className="text-xs text-muted-foreground mt-3 mb-1">
-                  Custom fields only apply to this app&apos;s form and won&apos;t change the default form used by other apps.
-                </p>
                 <Button variant="outline" size="sm" className="w-full mt-1" onClick={onAddCustomField}>
                   Add Custom Field
                 </Button>
