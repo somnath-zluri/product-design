@@ -32,7 +32,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { InsightBadge, type Insight, ALL_INSIGHTS } from '@/components/ui/insight-badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -47,9 +47,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { RecommendedActionBanner } from '@/components/ui/recommended-action-banner';
 import * as React from 'react';
 import type { ReactNode } from 'react';
-import { ChevronLeft, Search, ChevronRight, AlignLeft, AlignCenter, AlignRight, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, Star, Sparkles, CheckCircle, XCircle, Pencil, ChevronDown, UserCog, MessageSquarePlus } from 'lucide-react';
+import { ChevronLeft, Search, ChevronRight, AlignLeft, AlignCenter, AlignRight, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, Star, Sparkles, CheckCircle, XCircle, Pencil } from 'lucide-react';
 import { FaApple, FaWindows } from 'react-icons/fa';
 import { SiJira, SiFigma, SiGithub, SiSlack, SiNotion } from 'react-icons/si';
 import { ShieldCheck } from 'lucide-react';
@@ -122,6 +123,8 @@ interface UARProps {
   customSortByUser?: boolean;
   sampleUsersForSorting?: Array<{ firstName: string; lastName: string }>;
   searchPlaceholder?: string;
+  /** When true, the search box is rendered on the right side of the toolbar as the first item (e.g. Record Overview 1.3). */
+  searchOnRight?: boolean;
   showStatusColumn?: boolean;
   customStatusValues?: Array<'Pending' | 'Certified' | 'Modified' | 'Revoked'>;
   showReviewerLevelColumn?: boolean;
@@ -136,6 +139,9 @@ interface UARProps {
   hideButtonGroup?: boolean;
   showInsightsFilter?: boolean;
   showSignOffButton?: boolean;
+  /** When showSignOffButton is true, optional progress for the bar adjacent to the Sign-off button (e.g. { completed: 250, total: 500 } → "250 of 500" and 50%). */
+  signOffProgressCompleted?: number;
+  signOffProgressTotal?: number;
   /** Returns per-row status for the All / Pending / Reviewed / Not signed off filter and counts. When provided with showSignOffButton, fourth segment and filtering are enabled. */
   getRowReviewStatus?: (row: any) => 'pending' | 'reviewed' | 'signed-off';
   showSuggestedActionColumn?: boolean;
@@ -152,6 +158,18 @@ interface UARProps {
   externalSelectTrigger?: 'select-all' | 'deselect-all' | null;
   customRowClassName?: (row: any) => string | undefined;
   bulkActionMenu?: ReactNode;
+  /** Optional overview summary card rendered under the header (e.g. Record Overview 1.3). */
+  overviewCard?: ReactNode;
+  /** When set (e.g. 10), the table body has a fixed height showing this many rows and scrolls internally; viewport is not used for table height (e.g. Record Overview 1.3). */
+  tableBodyVisibleRows?: number;
+  /** When set (e.g. 500), the table body has this exact height in pixels. Overrides tableBodyVisibleRows when both are set (e.g. Record Overview 1.3). */
+  tableBodyHeightPx?: number;
+  /** When true, the application body (overview card, table, recommendations) scrolls as one; table has min height for 10 rows and no inner scroll (Record Overview 1.3). */
+  scrollBodyWithTable?: boolean;
+  /** When true, show the "Assign To Me" button in the toolbar (Record Overview 1.3 only). */
+  showAssignToMeButton?: boolean;
+  /** When set (e.g. 10), the table shows this many rows per page (Record Overview 1.3). Default 20. */
+  tablePageSize?: number;
   /** Called when user clicks an insight card CTA (e.g. Revoke). Use to navigate (e.g. to Record Overview 1.2). */
   onInsightCardActionClick?: (insight: { name: string; description: string; recommendedAction: 'Certify' | 'Modify' | 'Revoke' }, action: string) => void;
 }
@@ -756,6 +774,7 @@ export function UAR({
   customSortByUser = false,
   sampleUsersForSorting,
   searchPlaceholder,
+  searchOnRight = false,
   showStatusColumn = false,
   customStatusValues,
   showReviewerLevelColumn = false,
@@ -769,6 +788,8 @@ export function UAR({
   hideButtonGroup = false,
   showInsightsFilter = false,
   showSignOffButton = false,
+  signOffProgressCompleted,
+  signOffProgressTotal,
   getRowReviewStatus,
   showSuggestedActionColumn = false,
   hideInsightPopoverRecommendedAction = false,
@@ -784,6 +805,12 @@ export function UAR({
   externalSelectTrigger,
   customRowClassName,
   bulkActionMenu,
+  overviewCard,
+  tableBodyVisibleRows,
+  tableBodyHeightPx,
+  scrollBodyWithTable = false,
+  showAssignToMeButton = false,
+  tablePageSize = 20,
   onInsightCardActionClick,
 }: UARProps) {
   const deadlineCard = showDeadlineCard ? (
@@ -828,7 +855,7 @@ export function UAR({
   ].filter((tab) => !(hideUsersTab && tab.value === 'users'));
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
-    pageSize: 20,
+    pageSize: tablePageSize,
   });
   const [frozenPageIndex, setFrozenPageIndex] = React.useState(0);
   const frozenPageSize = 20;
@@ -840,6 +867,7 @@ export function UAR({
   const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>(initialSortDirection || 'asc');
   const [statusFilter, setStatusFilter] = React.useState<'all' | 'pending' | 'reviewed' | 'signed-off'>('all');
   const [filterNotSignedOff, setFilterNotSignedOff] = React.useState(false);
+  const [assignToMeFilter, setAssignToMeFilter] = React.useState(false);
   const [viewMode, setViewMode] = React.useState<'review' | 'reviewer-progress' | 'group-by-insight'>('review');
   const [selectedInsightFilters, setSelectedInsightFilters] = React.useState<Set<string>>(new Set());
   const insightsScrollRef = React.useRef<HTMLDivElement>(null);
@@ -895,10 +923,18 @@ export function UAR({
     return () => clearTimeout(timer);
   }, [checkScrollPosition, showInsightsFilter]);
   
-  // Reset pagination when switching views or when insight filters change
+  // Ensure pagination page size matches tablePageSize (e.g. Record Overview 1.3 uses 10)
+  React.useEffect(() => {
+    setPagination((prev) => {
+      if (prev.pageSize === tablePageSize) return prev;
+      return { pageIndex: 0, pageSize: tablePageSize };
+    });
+  }, [tablePageSize]);
+
+  // Reset pagination when switching views, insight filters, or Assign To Me filter
   React.useEffect(() => {
     setFrozenPageIndex(0);
-  }, [viewMode, selectedInsightFilters]);
+  }, [viewMode, selectedInsightFilters, assignToMeFilter]);
 
   // Sort the data based on current sort column and direction
   const sortedTableRows = React.useMemo(() => {
@@ -1163,6 +1199,13 @@ export function UAR({
     return dataAfterStatusFilter.filter((row) => getStatus(row) !== 'signed-off');
   }, [dataAfterStatusFilter, filterNotSignedOff, getStatus]);
 
+  // Apply "Assign To Me" quick filter (only rows assigned to Somnath Nabajja)
+  const ASSIGN_TO_ME_REVIEWER = 'Somnath Nabajja';
+  const dataAfterAssignToMe = React.useMemo(() => {
+    if (!assignToMeFilter) return dataAfterFilters;
+    return dataAfterFilters.filter((row) => (row as any).currentReviewer === ASSIGN_TO_ME_REVIEWER);
+  }, [dataAfterFilters, assignToMeFilter]);
+
   // Calculate actual counts for each insight based on table data
   const insightCounts = React.useMemo(() => {
     const counts: Record<string, number> = {};
@@ -1317,8 +1360,8 @@ export function UAR({
     }
   }, [externalSelectTrigger, onSelectAll]);
 
-  // Determine which data set to use based on view mode (status filter + Filters dropdown when applicable)
-  const currentDataRows = viewMode === 'reviewer-progress' ? reviewerProgressRows : dataAfterFilters;
+  // Determine which data set to use based on view mode (status filter + Filters dropdown + Assign To Me when applicable)
+  const currentDataRows = viewMode === 'reviewer-progress' ? reviewerProgressRows : dataAfterAssignToMe;
   
   const frozenPageCount = Math.ceil(currentDataRows.length / frozenPageSize);
   const frozenPageStart = frozenPageIndex * frozenPageSize;
@@ -1420,7 +1463,7 @@ export function UAR({
     },
     initialState: {
       pagination: {
-        pageSize: 20,
+        pageSize: tablePageSize,
       },
     },
   });
@@ -1775,9 +1818,9 @@ export function UAR({
                                 {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}-
                                 {Math.min(
                                   (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-                                  table.getRowModel().rows.length
+                                  table.getFilteredRowModel().rows.length
                                 )}{' '}
-                                of {table.getRowModel().rows.length} Users
+                                of {table.getFilteredRowModel().rows.length} records
                               </span>
                               <Button
                                 variant="ghost"
@@ -1864,9 +1907,9 @@ export function UAR({
                                 {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}-
                                 {Math.min(
                                   (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
-                                  table.getRowModel().rows.length
+                                  table.getFilteredRowModel().rows.length
                                 )}{' '}
-                                of {table.getRowModel().rows.length} Users
+                                of {table.getFilteredRowModel().rows.length} records
                               </span>
                               <Button
                                 variant="ghost"
@@ -1894,199 +1937,28 @@ export function UAR({
                       )
                     ) : null}
 
-                    <div className="flex flex-1 min-h-0 flex-col px-4 pt-3 pb-4">
-                      <Tabs defaultValue="applications">
-                        {showRadioCard ? (
-                          <TabsContent value="applications">
-                            <RadioGroup
-                              value={`applications-${selectedCardIndex}`}
-                              onValueChange={(value) => {
-                                const match = value.match(/-(\d+)$/);
-                                if (match) {
-                                  setSelectedCardIndex(Number(match[1]));
-                                }
-                              }}
-                              className="grid grid-cols-4 gap-4"
-                            >
-                              {radioCardItems.map((item, index) => (
-                                <Label
-                                  key={index}
-                                  htmlFor={`applications-radio-${index}`}
-                                  className={`flex cursor-pointer items-stretch rounded-lg border bg-background transition-colors hover:bg-muted/40 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-muted/60 ${item.type === 'dropdown' ? 'p-0' : 'p-5'}`}
-                                >
-                                  <div className={`flex flex-1 items-start justify-between gap-6 ${item.type === 'dropdown' ? 'p-5' : ''}`}>
-                                  <div className="grid gap-2">
-                                    {item.type === 'dropdown' ? (
-                                      <>
-                                        <Select value={dueRange} onValueChange={setDueRange}>
-                                          <SelectTrigger className="h-auto w-auto items-start justify-start gap-1 border-0 bg-transparent px-0 py-0 text-xs font-medium uppercase tracking-wide text-muted-foreground shadow-none focus:ring-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:mt-0.5">
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {dueRangeOptions.map((option) => (
-                                              <SelectItem key={option.value} value={option.value}>
-                                                {option.label}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                        <div className="text-3xl font-semibold">{item.value}</div>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                          {item.label}
-                                        </span>
-                                        <div className="text-3xl font-semibold">{item.value}</div>
-                                      </>
-                                    )}
-                                  </div>
-                                  <RadioGroupItem
-                                    value={`applications-${index}`}
-                                    id={`applications-radio-${index}`}
-                                    aria-label={item.radioLabel}
-                                    className="peer"
-                                  />
-                                  </div>
-                                </Label>
-                              ))}
-                            </RadioGroup>
-                          </TabsContent>
-                        ) : null}
-                        {showRadioCard ? (
-                          <TabsContent value="groups">
-                            <RadioGroup
-                              value={`groups-${selectedCardIndex}`}
-                              onValueChange={(value) => {
-                                const match = value.match(/-(\d+)$/);
-                                if (match) {
-                                  setSelectedCardIndex(Number(match[1]));
-                                }
-                              }}
-                              className="grid grid-cols-4 gap-4"
-                            >
-                              {radioCardItems.map((item, index) => (
-                                <Label
-                                  key={index}
-                                  htmlFor={`groups-radio-${index}`}
-                                  className={`flex cursor-pointer items-stretch rounded-lg border bg-background transition-colors hover:bg-muted/40 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-muted/60 ${item.type === 'dropdown' ? 'p-0' : 'p-5'}`}
-                                >
-                                  <div className={`flex flex-1 items-start justify-between gap-6 ${item.type === 'dropdown' ? 'p-5' : ''}`}>
-                                  <div className="grid gap-2">
-                                    {item.type === 'dropdown' ? (
-                                      <>
-                                        <Select value={dueRange} onValueChange={setDueRange}>
-                                          <SelectTrigger className="h-auto w-auto items-start justify-start gap-1 border-0 bg-transparent px-0 py-0 text-xs font-medium uppercase tracking-wide text-muted-foreground shadow-none focus:ring-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:mt-0.5">
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {dueRangeOptions.map((option) => (
-                                              <SelectItem key={option.value} value={option.value}>
-                                                {option.label}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                        <div className="text-3xl font-semibold">{item.value}</div>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                          {item.label}
-                                        </span>
-                                        <div className="text-3xl font-semibold">{item.value}</div>
-                                      </>
-                                    )}
-                                  </div>
-                                  <RadioGroupItem
-                                    value={`groups-${index}`}
-                                    id={`groups-radio-${index}`}
-                                    aria-label={item.radioLabel}
-                                    className="peer"
-                                  />
-                                  </div>
-                                </Label>
-                              ))}
-                            </RadioGroup>
-                          </TabsContent>
-                        ) : null}
-                        {showRadioCard ? (
-                          <TabsContent value="users">
-                            <RadioGroup
-                              value={`users-${selectedCardIndex}`}
-                              onValueChange={(value) => {
-                                const match = value.match(/-(\d+)$/);
-                                if (match) {
-                                  setSelectedCardIndex(Number(match[1]));
-                                }
-                              }}
-                              className="grid grid-cols-4 gap-4"
-                            >
-                              {radioCardItems.map((item, index) => (
-                                <Label
-                                  key={index}
-                                  htmlFor={`users-radio-${index}`}
-                                  className={`flex cursor-pointer items-stretch rounded-lg border bg-background transition-colors hover:bg-muted/40 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-muted/60 ${item.type === 'dropdown' ? 'p-0' : 'p-5'}`}
-                                >
-                                  <div className={`flex flex-1 items-start justify-between gap-6 ${item.type === 'dropdown' ? 'p-5' : ''}`}>
-                                  <div className="grid gap-2">
-                                    {item.type === 'dropdown' ? (
-                                      <>
-                                        <Select value={dueRange} onValueChange={setDueRange}>
-                                          <SelectTrigger className="h-auto w-auto items-start justify-start gap-1 border-0 bg-transparent px-0 py-0 text-xs font-medium uppercase tracking-wide text-muted-foreground shadow-none focus:ring-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:mt-0.5">
-                                            <SelectValue />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {dueRangeOptions.map((option) => (
-                                              <SelectItem key={option.value} value={option.value}>
-                                                {option.label}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                        <div className="text-3xl font-semibold">{item.value}</div>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                          {item.label}
-                                        </span>
-                                        <div className="text-3xl font-semibold">{item.value}</div>
-                                      </>
-                                    )}
-                                  </div>
-                                  <RadioGroupItem
-                                    value={`users-${index}`}
-                                    id={`users-radio-${index}`}
-                                    aria-label={item.radioLabel}
-                                    className="peer"
-                                  />
-                                  </div>
-                                </Label>
-                              ))}
-                            </RadioGroup>
-                          </TabsContent>
-                        ) : null}
-                        {showRadioTabs ? (
-                          <TabsList className="w-full justify-start rounded-none border-b bg-transparent p-0">
-                            {tabItems.map((tab) => (
-                              <TabsTrigger
-                                key={tab.value}
-                                value={tab.value}
-                                className={`rounded-none border-b-2 border-transparent px-4 py-2 -mb-px data-[state=active]:border-foreground data-[state=active]:shadow-none ${tab.widthClass}`}
-                              >
-                                <span>{tab.label}</span>
-                                {!hideTabBadges && (
-                                  <Badge variant="secondary" className="ml-2 min-w-[28px] justify-center">
-                                    {tab.count}
-                                  </Badge>
-                                )}
-                              </TabsTrigger>
-                            ))}
-                          </TabsList>
-                        ) : null}
-                        </Tabs>
-                        {showInsightsFilter && (
+                    <div
+                      className={cn(
+                        'flex flex-1 min-h-0 flex-col px-4 pt-3 pb-4',
+                        scrollBodyWithTable && 'overflow-y-auto'
+                      )}
+                    >
+                      {overviewCard
+                        ? (() => {
+                            const children = React.Children.toArray(overviewCard);
+                            if (children.length === 0) return null;
+                            const [banner, ...rest] = children;
+                            return (
+                              <>
+                                {rest.length > 0 ? (
+                                  <div className="mb-4">{rest}</div>
+                                ) : null}
+                                {banner}
+                              </>
+                            );
+                          })()
+                        : null}
+                      {showInsightsFilter && (
                           <>
                             <div className="mt-4 flex h-fit items-center gap-3 px-4 py-0">
                               <span className="text-sm font-medium shrink-0 flex items-center gap-1.5">
@@ -2160,121 +2032,24 @@ export function UAR({
                         )}
                         {/* Option 2: Banner/Alert Above Table - Multicolor Gradient Style */}
                         {bulkActionRecommendation && (
-                          <div className="mt-4 mx-4 mb-2">
-                            <div className="relative rounded-lg p-[3px]"
-                              style={{
-                                background: 'conic-gradient(from 0deg, #4f46e5, #7c3aed, #d946ef, #ec4899, #f43f5e, #f97316, #fbbf24, #4f46e5)',
-                              }}
-                            >
-                              <div className="flex flex-col gap-3 py-3 px-4 rounded-lg bg-background shadow-sm relative overflow-hidden">
-                              <div className="flex items-start gap-3 relative z-10">
-                                <Sparkles 
-                                  className="h-10 w-10 flex-shrink-0"
-                                  style={{
-                                    fill: 'url(#sparkle-gradient)',
-                                    color: 'transparent',
-                                  }}
-                                />
-                                <svg width="0" height="0" className="absolute">
-                                  <defs>
-                                    <linearGradient id="sparkle-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                      <stop offset="0%" stopColor="#a855f7" />
-                                      <stop offset="30%" stopColor="#ec4899" />
-                                      <stop offset="60%" stopColor="#f97316" />
-                                      <stop offset="100%" stopColor="#fb923c" />
-                                    </linearGradient>
-                                  </defs>
-                                </svg>
-                                <div className="flex flex-col flex-1 min-w-0">
-                                  <span className="text-base font-semibold">
-                                    Recommended Action: {bulkActionRecommendation === 'Revoke' ? 'Revoke Access' : bulkActionRecommendation === 'Modify' ? 'Modify Access' : 'Certify Access'}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground mt-0.5">
-                                    Found {filteredTableRows.length} {filteredTableRows.length === 1 ? 'record' : 'records'} with all selected insights
-                                  </span>
-                                  <div className="flex items-center gap-2 mt-2">
-                                    <Button
-                                      size="sm"
-                                      className={cn(
-                                        "h-8 text-xs font-medium flex items-center gap-1.5",
-                                        bulkActionRecommendation === 'Revoke' &&
-                                          "bg-red-600 text-white hover:bg-red-700",
-                                        bulkActionRecommendation === 'Modify' &&
-                                          "bg-yellow-600 text-white hover:bg-yellow-700",
-                                        bulkActionRecommendation === 'Certify' &&
-                                          "bg-green-600 text-white hover:bg-green-700"
-                                      )}
-                                    >
-                                      {bulkActionRecommendation === 'Modify' && (
-                                        <Pencil className="h-3.5 w-3.5" />
-                                      )}
-                                      {bulkActionRecommendation === 'Certify' && (
-                                        <CheckCircle className="h-3.5 w-3.5" />
-                                      )}
-                                      {bulkActionRecommendation === 'Revoke' ? `Revoke All (${filteredTableRows.length})` : bulkActionRecommendation === 'Modify' ? `Modify All (${filteredTableRows.length})` : `Certify All (${filteredTableRows.length})`}
-                                    </Button>
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button
-                                          size="sm"
-                                          variant="secondary"
-                                          className="h-8 text-xs font-medium bg-[#616161]/10 text-[#616161] hover:bg-[#616161]/20 border-0"
-                                        >
-                                          More Actions
-                                          <ChevronDown className="h-3.5 w-3.5 ml-1.5" />
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="start">
-                                        <DropdownMenuItem
-                                          className="flex items-center gap-2"
-                                          onClick={() => {
-                                            // Handle Modify All action
-                                            console.log('Modify All clicked');
-                                          }}
-                                        >
-                                          <Pencil className="h-3.5 w-3.5 text-yellow-600" />
-                                          Modify All
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          className="flex items-center gap-2"
-                                          onClick={() => {
-                                            // Handle Certify All action
-                                            console.log('Certify All clicked');
-                                          }}
-                                        >
-                                          <CheckCircle className="h-3.5 w-3.5 text-green-600" />
-                                          Certify All
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          className="flex items-center gap-2"
-                                          onClick={() => {
-                                            // Handle Reassign All action
-                                            console.log('Reassign All clicked');
-                                          }}
-                                        >
-                                          <UserCog className="h-3.5 w-3.5 text-blue-600" />
-                                          Reassign all
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                          className="flex items-center gap-2"
-                                          onClick={() => {
-                                            // Handle Add comment action
-                                            console.log('Add comment clicked');
-                                          }}
-                                        >
-                                          <MessageSquarePlus className="h-3.5 w-3.5 text-purple-600" />
-                                          Add comment
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          </div>
+                          <RecommendedActionBanner
+                            recommendation={bulkActionRecommendation}
+                            recordCount={filteredTableRows.length}
+                            onRevokeAll={() => console.log('Revoke All clicked')}
+                            onModifyAll={() => console.log('Modify All clicked')}
+                            onCertifyAll={() => console.log('Certify All clicked')}
+                            onReassignAll={() => console.log('Reassign All clicked')}
+                            onAddComment={() => console.log('Add comment clicked')}
+                          />
                         )}
-                        <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+                        <div
+                          className={cn(
+                            'mt-4 flex min-h-0 flex-col rounded-lg border',
+                            !scrollBodyWithTable && 'overflow-hidden',
+                            scrollBodyWithTable && 'shrink-0',
+                            tableBodyHeightPx == null && tableBodyVisibleRows == null && !scrollBodyWithTable && 'flex-1'
+                          )}
+                        >
                           <div className="mt-0 flex flex-wrap items-center justify-between gap-3 border-b bg-background px-4 h-fit pt-3 pb-3">
                             <div className="flex flex-wrap items-center gap-2">
                               {!hideButtonGroup && (
@@ -2436,7 +2211,7 @@ export function UAR({
                                   </Select>
                                 </div>
                               )}
-                              {!bulkActionMenu && (
+                              {!bulkActionMenu && !searchOnRight && (
                                   <div className="relative">
                                     <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                                     <Input
@@ -2444,6 +2219,15 @@ export function UAR({
                                       className="h-9 w-[220px] pl-8"
                                     />
                                   </div>
+                                )}
+                                {showAssignToMeButton && viewMode === 'review' && (
+                                  <Button
+                                    variant={assignToMeFilter ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setAssignToMeFilter((prev) => !prev)}
+                                  >
+                                    Assign To Me
+                                  </Button>
                                 )}
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
@@ -2463,6 +2247,18 @@ export function UAR({
                                 </DropdownMenu>
                             </div>
                             <div className="flex flex-wrap items-center gap-3">
+                              {searchOnRight && !bulkActionMenu && (
+                                <>
+                                  <div className="relative">
+                                    <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                      placeholder={searchPlaceholder || "Search apps"}
+                                      className="h-9 w-[220px] pl-8"
+                                    />
+                                  </div>
+                                  <Separator orientation="vertical" className="h-6" />
+                                </>
+                              )}
                               {showPaginationCTA && (
                                 <>
                                   <Button 
@@ -2477,11 +2273,35 @@ export function UAR({
                               )}
                               {showSignOffButton && (
                                 <>
-                                  <Button variant="default" size="sm">
+                                  {signOffProgressTotal != null && signOffProgressTotal > 0 && (
+                                    <>
+                                      <Separator orientation="vertical" className="h-6" />
+                                      <div className="flex flex-col gap-0 min-w-0">
+                                        <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                          {signOffProgressCompleted ?? 0} of {signOffProgressTotal}
+                                        </span>
+                                        <div className="flex h-4 items-center gap-2">
+                                          <Progress
+                                            value={
+                                              signOffProgressTotal > 0
+                                                ? Math.round(((signOffProgressCompleted ?? 0) / signOffProgressTotal) * 100)
+                                                : 0
+                                            }
+                                            className="h-2 min-w-[100px] w-24 flex-1 max-w-[140px] rounded-full bg-muted [&>div]:bg-green-500"
+                                          />
+                                          <span className="text-sm text-muted-foreground whitespace-nowrap tabular-nums">
+                                            {signOffProgressTotal > 0
+                                              ? `${Math.round(((signOffProgressCompleted ?? 0) / signOffProgressTotal) * 100)}%`
+                                              : '0%'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+                                  <Button variant="default" size="sm" className="bg-foreground text-background hover:bg-foreground/90">
                                     <ShieldCheck className="h-4 w-4 mr-2" />
                                     Sign-off
                                   </Button>
-                                  <Separator orientation="vertical" className="h-6" />
                                 </>
                               )}
                               {viewMode !== 'group-by-insight' ? (
@@ -2613,7 +2433,7 @@ export function UAR({
                                   <>
                                     <TableHead 
                                       className={`py-2 text-xs bg-muted ${firstColumnWidth ? '' : 'w-[360px]'} ${freezeFirstColumn ? 'sticky left-0 z-20 border-r border-muted-foreground/20' : ''}`}
-                                      style={firstColumnWidth ? { width: `${firstColumnWidth}px` } : undefined}
+                                      style={firstColumnWidth ? { width: `${firstColumnWidth}px`, minWidth: `${firstColumnWidth}px` } : undefined}
                                     >
                                       <div className="flex items-center gap-2">
                                         {firstColumnHeader === 'User' && selectedRows !== undefined && onSelectAll ? (
@@ -3123,7 +2943,7 @@ export function UAR({
                                     <>
                                       <TableCell 
                                         className={`py-2 text-sm ${firstColumnWidth ? '' : 'w-[360px]'} ${freezeFirstColumn ? 'sticky left-0 z-10 bg-background border-r border-muted-foreground/20' : ''}`}
-                                        style={firstColumnWidth ? { width: `${firstColumnWidth}px` } : undefined}
+                                        style={firstColumnWidth ? { width: `${firstColumnWidth}px`, minWidth: `${firstColumnWidth}px` } : undefined}
                                       >
                                         {customFirstColumnCell ? (
                                           customFirstColumnCell(row)
@@ -3628,7 +3448,25 @@ export function UAR({
 
                     {/* DataTable */}
                     {showTable ? (
-                      <div className="flex-1 overflow-auto px-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
+                      <div
+                        className={cn(
+                          'px-4 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/30',
+                          scrollBodyWithTable
+                            ? 'min-h-[520px] shrink-0'
+                            : (tableBodyHeightPx != null || tableBodyVisibleRows != null)
+                              ? 'flex-none overflow-auto'
+                              : 'flex-1'
+                        )}
+                        style={
+                          scrollBodyWithTable
+                            ? { minHeight: 520 }
+                            : tableBodyHeightPx != null
+                              ? { height: `${tableBodyHeightPx}px` }
+                              : tableBodyVisibleRows != null
+                                ? { height: `${tableBodyVisibleRows * 52}px` }
+                                : undefined
+                        }
+                      >
                         <Table className="min-w-full">
                           <TableHeader>
                             {table.getHeaderGroups().map((headerGroup) => (

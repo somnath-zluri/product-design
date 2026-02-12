@@ -47,6 +47,8 @@ interface UAREmployeeModeV12Props {
   customSortByUser?: boolean;
   sampleUsersForSorting?: Array<{ firstName: string; lastName: string }>;
   searchPlaceholder?: string;
+  /** When true, search box is the first item on the right side of the toolbar (e.g. Record Overview 1.3). */
+  searchOnRight?: boolean;
   showStatusColumn?: boolean;
   customStatusValues?: Array<'Pending' | 'Certified' | 'Modified' | 'Revoked'>;
   showReviewerLevelColumn?: boolean;
@@ -57,8 +59,12 @@ interface UAREmployeeModeV12Props {
   showReviewerProgressButton?: boolean;
   thirdButtonLabel?: string;
   groupsTabLabel?: string;
+  hideButtonGroup?: boolean;
   showInsightsFilter?: boolean;
   showSignOffButton?: boolean;
+  /** When showSignOffButton is true, optional progress for the bar adjacent to Sign-off (e.g. 250 of 500). */
+  signOffProgressCompleted?: number;
+  signOffProgressTotal?: number;
   getRowReviewStatus?: (row: any) => 'pending' | 'reviewed' | 'signed-off';
   showSuggestedActionColumn?: boolean;
   hideInsightPopoverRecommendedAction?: boolean;
@@ -74,6 +80,18 @@ interface UAREmployeeModeV12Props {
   externalSelectTrigger?: 'select-all' | 'deselect-all' | null;
   customRowClassName?: (row: any) => string | undefined;
   bulkActionMenu?: ReactNode;
+  /** Optional overview summary card (Record Overview 1.3 only). Rendered under header, above table. */
+  overviewCard?: ReactNode;
+  /** When set (e.g. 10), table body shows this many rows with fixed height and scrolls; viewport is not used (Record Overview 1.3). */
+  tableBodyVisibleRows?: number;
+  /** When set (e.g. 500), table body has this exact height in pixels (Record Overview 1.3). */
+  tableBodyHeightPx?: number;
+  /** When true, application body (overview + table + recommendations) scrolls as one; table has min 10 rows visible, no inner scroll (Record Overview 1.3). */
+  scrollBodyWithTable?: boolean;
+  /** When true, show the "Assign To Me" button in the toolbar (Record Overview 1.3 only). */
+  showAssignToMeButton?: boolean;
+  /** When set (e.g. 10), table shows this many rows per page (Record Overview 1.3). */
+  tablePageSize?: number;
   onInsightCardActionClick?: (insight: { name: string; description: string; recommendedAction: 'Certify' | 'Modify' | 'Revoke' }, action: string) => void;
 }
 
@@ -122,6 +140,7 @@ export function UAREmployeeModeV12({
   customSortByUser,
   sampleUsersForSorting,
   searchPlaceholder,
+  searchOnRight,
   showStatusColumn,
   customStatusValues,
   showReviewerLevelColumn,
@@ -132,8 +151,11 @@ export function UAREmployeeModeV12({
   showReviewerProgressButton,
   thirdButtonLabel,
   groupsTabLabel,
+  hideButtonGroup,
   showInsightsFilter,
   showSignOffButton,
+  signOffProgressCompleted,
+  signOffProgressTotal,
   getRowReviewStatus,
   showSuggestedActionColumn,
   hideInsightPopoverRecommendedAction,
@@ -149,6 +171,12 @@ export function UAREmployeeModeV12({
   externalSelectTrigger,
   customRowClassName,
   bulkActionMenu,
+  overviewCard,
+  tableBodyVisibleRows,
+  tableBodyHeightPx,
+  scrollBodyWithTable,
+  showAssignToMeButton,
+  tablePageSize,
   onInsightCardActionClick,
 }: UAREmployeeModeV12Props) {
   return (
@@ -206,6 +234,7 @@ export function UAREmployeeModeV12({
       customSortByUser={customSortByUser}
       sampleUsersForSorting={sampleUsersForSorting}
       searchPlaceholder={searchPlaceholder}
+      searchOnRight={searchOnRight}
       showStatusColumn={showStatusColumn}
       customStatusValues={customStatusValues}
       showReviewerLevelColumn={showReviewerLevelColumn}
@@ -216,8 +245,11 @@ export function UAREmployeeModeV12({
       showReviewerProgressButton={showReviewerProgressButton}
       thirdButtonLabel={thirdButtonLabel}
       groupsTabLabel={groupsTabLabel}
+      hideButtonGroup={hideButtonGroup}
       showInsightsFilter={showInsightsFilter}
       showSignOffButton={showSignOffButton}
+      signOffProgressCompleted={signOffProgressCompleted}
+      signOffProgressTotal={signOffProgressTotal}
       getRowReviewStatus={getRowReviewStatus}
       showSuggestedActionColumn={showSuggestedActionColumn}
       hideInsightPopoverRecommendedAction={hideInsightPopoverRecommendedAction}
@@ -233,6 +265,12 @@ export function UAREmployeeModeV12({
       externalSelectTrigger={externalSelectTrigger}
       customRowClassName={customRowClassName}
       bulkActionMenu={bulkActionMenu}
+      overviewCard={overviewCard}
+      tableBodyVisibleRows={tableBodyVisibleRows}
+      tableBodyHeightPx={tableBodyHeightPx}
+      scrollBodyWithTable={scrollBodyWithTable}
+      showAssignToMeButton={showAssignToMeButton}
+      tablePageSize={tablePageSize}
       onInsightCardActionClick={onInsightCardActionClick}
     />
   );
