@@ -50,7 +50,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { RecommendedActionBanner } from '@/components/ui/recommended-action-banner';
 import * as React from 'react';
 import type { ReactNode } from 'react';
-import { ChevronLeft, Search, ChevronRight, AlignLeft, AlignCenter, AlignRight, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, Star, Sparkles, CheckCircle, XCircle, Pencil } from 'lucide-react';
+import { ChevronLeft, Search, ChevronRight, AlignLeft, AlignCenter, AlignRight, SlidersHorizontal, ArrowUpDown, ArrowUp, ArrowDown, Star, Sparkles, CheckCircle, XCircle, Pencil, Users, LayoutGrid, UsersRound } from 'lucide-react';
 import { FaApple, FaWindows } from 'react-icons/fa';
 import { SiJira, SiFigma, SiGithub, SiSlack, SiNotion } from 'react-icons/si';
 import { ShieldCheck } from 'lucide-react';
@@ -86,6 +86,16 @@ interface UARProps {
   showHorizontalStepper?: boolean;
   showRadioCard?: boolean;
   showRadioTabs?: boolean;
+  /** When true, omit the border below the dashboard cards (e.g. Dashboard 1.3). */
+  hideBorderBelowCards?: boolean;
+  /** When true, show an "Entities" column (Users, Applications, Groups) in the dashboard cards row (Dashboard 1.2 only). */
+  showEntitiesColumn?: boolean;
+  /** When true, show an entity column in the data table (between Owner and Time remaining). */
+  showEntityColumn?: boolean;
+  /** When set, used as the entity column header (e.g. "entity"). Default "Entity." */
+  entityColumnLabel?: string;
+  /** When set, used as the cell value for all rows (e.g. "A"). Otherwise uses row.entity (Users/Applications/Groups). */
+  entityColumnValue?: string;
   showDeadlineCard?: boolean;
   showHeaderSummary?: boolean;
   showHeaderDescription?: boolean;
@@ -99,8 +109,20 @@ interface UARProps {
   showRiskScoreColumn?: boolean;
   moveHeaderDetailsToSidebar?: boolean;
   sidebarHasTabs?: boolean;
+  /** Optional extra content rendered in the left sidebar (e.g. "Reviewer Review Instructions"). */
+  sidebarExtraContent?: ReactNode;
   firstColumnHeader?: string;
   showTimeRemainingColumn?: boolean;
+  /** When true, show exact date as secondary info in Time remaining column (Dashboard 1.3 only). */
+  showTimeRemainingDate?: boolean;
+  /** When true, show "X of Y records reviewed" progress in Progress column (Dashboard 1.3 only). */
+  showReviewedProgressBar?: boolean;
+  /** Completed count for reviewed progress (e.g. 250). */
+  reviewedProgressCompleted?: number;
+  /** Total count for reviewed progress (e.g. 500). */
+  reviewedProgressTotal?: number;
+  /** Label for reviewed progress bar (e.g. "records reviewed" or "Users Reviewed"). */
+  reviewedProgressLabel?: string;
   customTableColumns?: ColumnDef<any>[];
   customTableData?: any[];
   hideUsersTab?: boolean;
@@ -172,6 +194,8 @@ interface UARProps {
   tablePageSize?: number;
   /** Called when user clicks an insight card CTA (e.g. Revoke). Use to navigate (e.g. to Record Overview 1.2). */
   onInsightCardActionClick?: (insight: { name: string; description: string; recommendedAction: 'Certify' | 'Modify' | 'Revoke' }, action: string) => void;
+  /** When true, the third view (e.g. View by users) shows empty content with "to be designed" centered (Certification Overview 1.3). */
+  thirdViewPlaceholder?: boolean;
 }
 
 interface TableData {
@@ -665,6 +689,7 @@ const frozenTableRows = Array.from({ length: 50 }, (_, index) => {
     userJobTitle: sampleJobTitles[index % sampleJobTitles.length],
     userAccountType: sampleAccountTypes[index % 2] as 'Employee' | 'External',
     userDepartment: sampleDepartments[index % sampleDepartments.length],
+    entity: ['Users', 'Applications', 'Groups'][index % 3] as const,
   };
 })
   .sort((a, b) => a.col5Days - b.col5Days);
@@ -737,6 +762,11 @@ export function UAR({
   showHorizontalStepper = true,
   showRadioCard = false,
   showRadioTabs = true,
+  hideBorderBelowCards = false,
+  showEntitiesColumn = false,
+  showEntityColumn = false,
+  entityColumnLabel,
+  entityColumnValue,
   showDeadlineCard = false,
   showHeaderSummary = true,
   showHeaderDescription = true,
@@ -750,8 +780,14 @@ export function UAR({
   showRiskScoreColumn = false,
   moveHeaderDetailsToSidebar = false,
   sidebarHasTabs = false,
+  sidebarExtraContent,
   firstColumnHeader,
   showTimeRemainingColumn = false,
+  showTimeRemainingDate = false,
+  showReviewedProgressBar = false,
+  reviewedProgressCompleted = 0,
+  reviewedProgressTotal = 0,
+  reviewedProgressLabel = 'records reviewed',
   customTableColumns,
   customTableData,
   hideUsersTab = false,
@@ -812,6 +848,7 @@ export function UAR({
   showAssignToMeButton = false,
   tablePageSize = 20,
   onInsightCardActionClick,
+  thirdViewPlaceholder = false,
 }: UARProps) {
   const deadlineCard = showDeadlineCard ? (
     <div className="relative flex flex-col items-start">
@@ -828,7 +865,7 @@ export function UAR({
   const radioCardItems = [
     { label: 'Open', value: 128, radioLabel: 'Open' },
     { label: 'Overdue', value: 13, radioLabel: 'Overdue' },
-    { label: 'Due in', value: 64, radioLabel: 'Due in', type: 'dropdown' as const },
+    { label: 'Due in 7 days', value: 64, radioLabel: 'Due in 7 days', type: 'dropdown' as const },
     { label: 'Completed', value: 512, radioLabel: 'Completed' },
   ];
   const dueRangeOptions = [
@@ -873,6 +910,7 @@ export function UAR({
   const insightsScrollRef = React.useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = React.useState(false);
   const [canScrollRight, setCanScrollRight] = React.useState(true);
+  const [descriptionExpanded, setDescriptionExpanded] = React.useState(false);
 
   // Check scroll position and update button states
   const checkScrollPosition = React.useCallback(() => {
@@ -1367,29 +1405,37 @@ export function UAR({
   const frozenPageStart = frozenPageIndex * frozenPageSize;
   const frozenPageEnd = Math.min(frozenPageStart + frozenPageSize, currentDataRows.length);
   const frozenPageRows = currentDataRows.slice(frozenPageStart, frozenPageEnd);
+  const headerDescriptionText =
+    'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.';
   const headerDescriptionBlock = showHeaderDescription ? (
-    <div className="text-sm text-foreground max-w-[520px]">
-      <p className="line-clamp-3">
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor. Ut enim ad minim.
-        Et... <button className="text-sm text-foreground underline underline-offset-2">Read more</button>
+    <div className="text-base text-foreground max-w-[520px]">
+      <p className={descriptionExpanded ? '' : 'line-clamp-3'}>
+        {headerDescriptionText}
       </p>
+      <button
+        type="button"
+        onClick={() => setDescriptionExpanded((prev) => !prev)}
+        className="text-base text-foreground underline underline-offset-2 mt-0.5 hover:no-underline"
+      >
+        {descriptionExpanded ? 'Read less' : 'Read more'}
+      </button>
     </div>
   ) : null;
   const headerKeyValueBlock = (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <span className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">Status</span>
+        <span className="text-base font-medium text-foreground">Status</span>
         <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="w-fit border-transparent text-xs font-semibold">
+          <Badge variant="secondary" className="w-fit border-transparent text-base font-semibold">
             On-track
           </Badge>
           <Separator orientation="vertical" className="h-4" />
-          <span className="text-xs text-muted-foreground">9 days remaining</span>
+          <span className="text-base text-foreground">9 days remaining</span>
         </div>
       </div>
       <div className="flex flex-col gap-1">
-        <span className="text-[10px] font-medium tracking-[0.12em] text-muted-foreground">Owner</span>
-        <span className="w-fit text-sm font-semibold text-foreground border-b border-dashed border-current pb-[1px]">
+        <span className="text-base font-medium text-foreground">Owner</span>
+        <span className="w-fit text-base font-semibold text-foreground border-b border-dashed border-current pb-[1px]">
           Alex Morgan
         </span>
       </div>
@@ -1722,26 +1768,28 @@ export function UAR({
                             <div className="flex flex-col gap-6">
                               {moveHeaderDetailsToSidebar ? (
                                 <div className="flex flex-col gap-2">
-                                  <span className="text-[10px] font-medium tracking-wide text-muted-foreground">
+                                  <span className="text-base font-medium text-foreground">
                                     Description
                                   </span>
                                   {headerDescriptionBlock}
                                 </div>
                               ) : null}
                               {moveHeaderDetailsToSidebar ? headerKeyValueBlock : null}
+                              {sidebarExtraContent}
                             </div>
                           </>
                         ) : (
                           <>
                             {moveHeaderDetailsToSidebar ? (
                               <div className="flex flex-col gap-2">
-                                <span className="text-[10px] font-medium tracking-wide text-muted-foreground">
+                                <span className="text-base font-medium text-foreground">
                                   Description
                                 </span>
                                 {headerDescriptionBlock}
                               </div>
                             ) : null}
                             {moveHeaderDetailsToSidebar ? headerKeyValueBlock : null}
+                            {sidebarExtraContent}
                           </>
                         )}
                       </div>
@@ -1750,6 +1798,68 @@ export function UAR({
 
                   {/* Right Column - DataTable with Controls */}
                   <div className="flex flex-1 flex-col overflow-hidden bg-background">
+                    {/* Dashboard: 4 status cards (Open, Overdue, Due in, Completed) + optional deadline card */}
+                    {showRadioCard ? (
+                      <div className={cn('bg-background px-4 py-4', !hideBorderBelowCards && 'border-b')}>
+                        <div className="flex w-full items-stretch gap-3">
+                          {radioCardItems.map((item, index) => (
+                            <div key={item.radioLabel} className="flex flex-1 min-w-0 items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCardIndex(index)}
+                                className={cn(
+                                  'w-full rounded-xl border px-4 py-3 flex flex-col items-center justify-center gap-0.5 transition-colors',
+                                  selectedCardIndex === index
+                                    ? 'border-primary bg-primary/10 text-foreground'
+                                    : 'border-border bg-background hover:bg-muted/50 text-muted-foreground'
+                                )}
+                              >
+                                <span className="text-xs font-medium text-muted-foreground">{item.radioLabel}</span>
+                                <span className="text-lg font-semibold tabular-nums">{item.value}</span>
+                              </button>
+                              {item.type === 'dropdown' && selectedCardIndex === index ? (
+                                <Select value={dueRange} onValueChange={(v) => setDueRange(v)}>
+                                  <SelectTrigger className="w-[140px] h-9">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {dueRangeOptions.map((opt) => (
+                                      <SelectItem key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                        {showRadioTabs && tabItems.length > 0 ? (
+                          <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
+                            <Tabs defaultValue={tabItems[0]?.value} className="w-full">
+                              <div className="flex gap-2 flex-wrap">
+                                {tabItems.map((tab) => (
+                                  <button
+                                    key={tab.value}
+                                    type="button"
+                                    className={cn(
+                                      'rounded-md border px-3 py-1.5 text-sm font-medium transition-colors',
+                                      'border-border bg-background hover:bg-muted/50',
+                                      'flex items-center gap-1.5'
+                                    )}
+                                  >
+                                    {tab.label}
+                                    <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-xs border-transparent">
+                                      {tab.count}
+                                    </Badge>
+                                  </button>
+                                ))}
+                              </div>
+                            </Tabs>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                     {/* Controls */}
                     {showTableControls ? (
                       controlsBelowTitle ? (
@@ -2272,37 +2382,10 @@ export function UAR({
                                 </>
                               )}
                               {showSignOffButton && (
-                                <>
-                                  {signOffProgressTotal != null && signOffProgressTotal > 0 && (
-                                    <>
-                                      <Separator orientation="vertical" className="h-6" />
-                                      <div className="flex flex-col gap-0 min-w-0">
-                                        <span className="text-sm text-muted-foreground whitespace-nowrap">
-                                          {signOffProgressCompleted ?? 0} of {signOffProgressTotal}
-                                        </span>
-                                        <div className="flex h-4 items-center gap-2">
-                                          <Progress
-                                            value={
-                                              signOffProgressTotal > 0
-                                                ? Math.round(((signOffProgressCompleted ?? 0) / signOffProgressTotal) * 100)
-                                                : 0
-                                            }
-                                            className="h-2 min-w-[100px] w-24 flex-1 max-w-[140px] rounded-full bg-muted [&>div]:bg-green-500"
-                                          />
-                                          <span className="text-sm text-muted-foreground whitespace-nowrap tabular-nums">
-                                            {signOffProgressTotal > 0
-                                              ? `${Math.round(((signOffProgressCompleted ?? 0) / signOffProgressTotal) * 100)}%`
-                                              : '0%'}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    </>
-                                  )}
-                                  <Button variant="default" size="sm" className="bg-foreground text-background hover:bg-foreground/90">
-                                    <ShieldCheck className="h-4 w-4 mr-2" />
-                                    Sign-off
-                                  </Button>
-                                </>
+                                <Button variant="default" size="sm" className="bg-foreground text-background hover:bg-foreground/90">
+                                  <ShieldCheck className="h-4 w-4 mr-2" />
+                                  Sign-off
+                                </Button>
                               )}
                               {viewMode !== 'group-by-insight' ? (
                                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -2339,6 +2422,11 @@ export function UAR({
                           </div>
                         <div className="flex-1 overflow-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-muted [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
                             {viewMode === 'group-by-insight' ? (
+                              thirdViewPlaceholder ? (
+                                <div className="flex flex-1 items-center justify-center min-h-[320px] text-muted-foreground text-lg">
+                                  to be designed
+                                </div>
+                              ) : (
                               <div className="p-4 flex flex-col gap-4">
                                 <div className="flex items-center gap-2">
                                   <svg width="0" height="0" className="absolute" aria-hidden>
@@ -2410,6 +2498,7 @@ export function UAR({
                                 })}
                                 </div>
                               </div>
+                              )
                             ) : (
                             <Table className="min-w-[900px]">
                             <TableHeader className="sticky top-0 z-20 bg-muted border-b [&_tr]:border-b">
@@ -2424,7 +2513,9 @@ export function UAR({
                                         <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50 transition-opacity" />
                                       </div>
                                     </TableHead>
-                                    <TableHead className="py-2 text-xs bg-muted">Records</TableHead>
+                                    {!hideUsersIncludedColumn ? (
+                                      <TableHead className="py-2 text-xs bg-muted">Records</TableHead>
+                                    ) : null}
                                     <TableHead className="py-2 text-xs bg-muted">Level Status (Progress)</TableHead>
                                     <TableHead className="py-2 text-xs bg-muted">Last Reviewed</TableHead>
                                     <TableHead className="py-2 text-xs bg-muted">Action</TableHead>
@@ -2644,6 +2735,11 @@ export function UAR({
                                     </div>
                                   </TableHead>
                                     ) : null}
+                                    {showEntityColumn ? (
+                                      <TableHead className="py-2 text-xs bg-muted">
+                                        <span>{entityColumnLabel ?? 'Entity.'}</span>
+                                      </TableHead>
+                                    ) : null}
                                     {showTimeRemainingColumn ? (
                                       <TableHead 
                                         className="py-2 text-xs bg-muted cursor-pointer select-none transition-colors hover:bg-muted/80 group"
@@ -2835,9 +2931,11 @@ export function UAR({
                                           {(row as any).application}
                                         </span>
                                       </TableCell>
-                                      <TableCell className="py-2 text-sm">
-                                        {formatNumber((row as any).records)}
-                                      </TableCell>
+                                      {!hideUsersIncludedColumn ? (
+                                        <TableCell className="py-2 text-sm">
+                                          {formatNumber((row as any).records)}
+                                        </TableCell>
+                                      ) : null}
                                       {/* Progress Indicator Style with Stripe Background */}
                                       <TableCell className="py-2 text-sm">
                                         <div className="flex items-center gap-1.5">
@@ -3114,14 +3212,39 @@ export function UAR({
                                           </div>
                                         </TableCell>
                                       ) : null}
+                                      {showEntityColumn ? (
+                                        <TableCell className="py-2 text-sm">
+                                          {(() => {
+                                            const value = entityColumnValue ?? (row as any).entity ?? 'Users';
+                                            const Icon = value === 'Users' ? Users : value === 'Applications' ? LayoutGrid : UsersRound;
+                                            return (
+                                              <div className="flex items-center gap-2">
+                                                <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                                <span>{value}</span>
+                                              </div>
+                                            );
+                                          })()}
+                                        </TableCell>
+                                      ) : null}
                                       {showTimeRemainingColumn ? (
                                         <TableCell className="py-2 text-sm">
-                                          <div className="flex items-center gap-2">
-                                            <span>
-                                              {(row as any).col5Days < 0
-                                                ? `${Math.abs((row as any).col5Days)} days ago`
-                                                : `${(row as any).col5Days} days left`}
-                                            </span>
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            {showTimeRemainingDate && (row as any).col5Date ? (
+                                              <>
+                                                <span>{(row as any).col5Date}</span>
+                                                <span className="text-foreground">
+                                                  ({(row as any).col5Days < 0
+                                                    ? `${Math.abs((row as any).col5Days)} days ago`
+                                                    : `${(row as any).col5Days} days left`})
+                                                </span>
+                                              </>
+                                            ) : (
+                                              <span>
+                                                {(row as any).col5Days < 0
+                                                  ? `${Math.abs((row as any).col5Days)} days ago`
+                                                  : `${(row as any).col5Days} days left`}
+                                              </span>
+                                            )}
                                             <Badge
                                               variant="secondary"
                                               className={`inline-block shrink-0 border-transparent text-xs font-semibold whitespace-nowrap ${
@@ -3143,18 +3266,38 @@ export function UAR({
                                       ) : null}
                                       {!hideProgressColumn ? (
                                         <TableCell className="py-2 text-sm">
-                                          <div className="flex items-center gap-2 w-[120px]">
-                                            <div className="relative h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
-                                              <div
-                                                className="h-full transition-all rounded-full"
-                                                style={{
-                                                  width: `${(row as any).progress}%`,
-                                                  backgroundColor: 'hsl(142, 71%, 45%)',
-                                                }}
-                                              />
+                                          {showReviewedProgressBar && reviewedProgressTotal > 0 ? (
+                                            <div className="flex flex-col gap-1.5 min-w-0">
+                                              <span className="text-xs text-foreground">
+                                                {reviewedProgressCompleted} of {reviewedProgressTotal} {reviewedProgressLabel}
+                                              </span>
+                                              <div className="flex items-center gap-2 min-w-0">
+                                                <Progress
+                                                  value={
+                                                    Math.round((reviewedProgressCompleted / reviewedProgressTotal) * 100)
+                                                  }
+                                                  className="h-2 flex-1 min-w-0 rounded-full bg-muted max-w-[225px]"
+                                                  indicatorClassName="bg-green-500"
+                                                />
+                                                <span className="text-xs text-foreground tabular-nums shrink-0 whitespace-nowrap">
+                                                  {Math.round((reviewedProgressCompleted / reviewedProgressTotal) * 100)}%
+                                                </span>
+                                              </div>
                                             </div>
-                                            <span className="text-xs whitespace-nowrap">{(row as any).progress}%</span>
-                                          </div>
+                                          ) : (
+                                            <div className="flex items-center gap-2 w-[120px]">
+                                              <div className="relative h-1.5 flex-1 rounded-full bg-secondary overflow-hidden">
+                                                <div
+                                                  className="h-full transition-all rounded-full"
+                                                  style={{
+                                                    width: `${(row as any).progress}%`,
+                                                    backgroundColor: 'hsl(142, 71%, 45%)',
+                                                  }}
+                                                />
+                                              </div>
+                                              <span className="text-xs whitespace-nowrap">{(row as any).progress}%</span>
+                                            </div>
+                                          )}
                                         </TableCell>
                                       ) : null}
                                       {showRiskScoreColumn && firstColumnHeader !== 'User' ? (

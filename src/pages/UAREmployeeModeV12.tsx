@@ -93,6 +93,24 @@ interface UAREmployeeModeV12Props {
   /** When set (e.g. 10), table shows this many rows per page (Record Overview 1.3). */
   tablePageSize?: number;
   onInsightCardActionClick?: (insight: { name: string; description: string; recommendedAction: 'Certify' | 'Modify' | 'Revoke' }, action: string) => void;
+  /** When true, show "Entity." column in the data table (Users, Applications, Groups). */
+  showEntityColumn?: boolean;
+  /** When true, show the data table (default false for V12). */
+  showTable?: boolean;
+  /** When true, show table controls (Filters, View by, etc.). */
+  showTableControls?: boolean;
+  /** When true, the third view (e.g. View by users) shows empty content with "to be designed" centered (Certification Overview 1.3). */
+  thirdViewPlaceholder?: boolean;
+  /** Optional extra content in the left sidebar (e.g. "Reviewer Review Instructions" for Certification Overview 1.3). */
+  sidebarExtraContent?: ReactNode;
+  /** When true, show "X of Y records reviewed" progress bar in Progress column (Dashboard 1.3 pattern). */
+  showReviewedProgressBar?: boolean;
+  /** Completed count for reviewed progress (e.g. 250). */
+  reviewedProgressCompleted?: number;
+  /** Total count for reviewed progress (e.g. 500). */
+  reviewedProgressTotal?: number;
+  /** Label for reviewed progress bar (e.g. "records reviewed" or "Users Reviewed"). */
+  reviewedProgressLabel?: string;
 }
 
 export function UAREmployeeModeV12({
@@ -178,6 +196,15 @@ export function UAREmployeeModeV12({
   showAssignToMeButton,
   tablePageSize,
   onInsightCardActionClick,
+  showEntityColumn = false,
+  showTable = false,
+  showTableControls = false,
+  thirdViewPlaceholder = false,
+  sidebarExtraContent,
+  showReviewedProgressBar = false,
+  reviewedProgressCompleted = 0,
+  reviewedProgressTotal = 0,
+  reviewedProgressLabel,
 }: UAREmployeeModeV12Props) {
   return (
     <UAR
@@ -195,8 +222,8 @@ export function UAREmployeeModeV12({
       onBreadcrumbParentClick={onBreadcrumbParentClick}
       onBreadcrumbMiddleClick={onBreadcrumbMiddleClick}
       showLeftPanel={showLeftPanel}
-      showTableControls={false}
-      showTable={false}
+      showTableControls={showTableControls}
+      showTable={showTable}
       showHorizontalStepper={false}
       showRadioCard={false}
       showDeadlineCard={showDeadlineCard ?? true}
@@ -272,6 +299,13 @@ export function UAREmployeeModeV12({
       showAssignToMeButton={showAssignToMeButton}
       tablePageSize={tablePageSize}
       onInsightCardActionClick={onInsightCardActionClick}
+      showEntityColumn={showEntityColumn}
+      thirdViewPlaceholder={thirdViewPlaceholder}
+      sidebarExtraContent={sidebarExtraContent}
+      showReviewedProgressBar={showReviewedProgressBar}
+      reviewedProgressCompleted={reviewedProgressCompleted}
+      reviewedProgressTotal={reviewedProgressTotal}
+      reviewedProgressLabel={reviewedProgressLabel}
     />
   );
 }

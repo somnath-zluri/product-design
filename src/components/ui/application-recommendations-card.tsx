@@ -4,6 +4,7 @@ import { SiSlack } from 'react-icons/si';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
 function getInitials(name: string): string {
@@ -24,7 +25,12 @@ export type ApplicationRecommendationsTab =
 export interface ApplicationRecommendationsCardProps {
   appName: string;
   appIconUrl?: string;
-  reviewerName: string;
+  /** Time remaining text (e.g. "12 days left"). When set, shows "Time remaining" instead of Reviewer. */
+  timeRemaining?: string;
+  /** Due date text (e.g. "Jan 25, 2026"). When set, shows "Due: {dueDate}" instead of Time remaining. */
+  dueDate?: string;
+  /** Shown when timeRemaining and dueDate are not set. */
+  reviewerName?: string;
   /** Optional image URL for the reviewer avatar. When unset, avatar shows initials. */
   reviewerImageUrl?: string;
   recommendationsCount: number;
@@ -41,6 +47,8 @@ export interface ApplicationRecommendationsCardProps {
 export function ApplicationRecommendationsCard({
   appName,
   appIconUrl,
+  timeRemaining,
+  dueDate,
   reviewerName,
   reviewerImageUrl,
   recommendationsCount,
@@ -48,7 +56,7 @@ export function ApplicationRecommendationsCard({
   revokeCount,
   modifyCount,
   manualReviewCount,
-  activeTab = 'certify',
+  activeTab = 'revoke',
   onTabChange,
   children,
   className,
@@ -57,7 +65,7 @@ export function ApplicationRecommendationsCard({
     <div className={cn(className)}>
       <div className="p-0">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          {/* Left section: app + divider + reviewer */}
+          {/* Left section: app + divider + time remaining or reviewer */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               {appIconUrl ? (
@@ -77,17 +85,39 @@ export function ApplicationRecommendationsCard({
               )}
               <span className="font-semibold text-foreground">{appName}</span>
             </div>
+            <Separator orientation="vertical" className="h-4" />
             <div className="flex items-center gap-2">
-              <span className="text-sm">Reviewer:</span>
-              <Avatar className="h-6 w-6">
-                {reviewerImageUrl ? (
-                  <AvatarImage src={reviewerImageUrl} alt={reviewerName} />
-                ) : null}
-                <AvatarFallback className="text-[10px] bg-muted">
-                  {getInitials(reviewerName)}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm">{reviewerName}</span>
+              {dueDate != null ? (
+                <>
+                  <span className="text-sm">Due:</span>
+                  <span className="text-sm font-medium text-foreground">{dueDate}</span>
+                  {timeRemaining != null ? (
+                    <Badge variant="secondary" className="font-medium bg-green-100 text-green-700 border-transparent">
+                      {timeRemaining}
+                    </Badge>
+                  ) : null}
+                </>
+              ) : timeRemaining != null ? (
+                <>
+                  <span className="text-sm">Time remaining</span>
+                  <Badge variant="secondary" className="font-medium bg-green-100 text-green-700 border-transparent">
+                    {timeRemaining}
+                  </Badge>
+                </>
+              ) : reviewerName != null ? (
+                <>
+                  <span className="text-sm">Reviewer:</span>
+                  <Avatar className="h-6 w-6">
+                    {reviewerImageUrl ? (
+                      <AvatarImage src={reviewerImageUrl} alt={reviewerName} />
+                    ) : null}
+                    <AvatarFallback className="text-[10px] bg-muted">
+                      {getInitials(reviewerName)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm">{reviewerName}</span>
+                </>
+              ) : null}
             </div>
           </div>
 

@@ -163,6 +163,34 @@ export const DashboardV12Story: Story = {
   ),
 };
 
+export const DashboardV13Story: Story = {
+  name: 'Dashboard 1.3',
+  render: () => (
+    <UAREmployeeMode
+      titleOverride="Access Review"
+      showDeadlineCard
+      showHeaderDescription={false}
+      deadlineCardPosition="left"
+      hideTimelineColumn
+      hideInsightsColumn
+      showRadioTabs={false}
+      hideBorderBelowCards
+      showEntitiesColumn
+      showEntityColumn
+      entityColumnLabel="Entity"
+      showTimeRemainingDate
+      showReviewedProgressBar
+      reviewedProgressCompleted={250}
+      reviewedProgressTotal={500}
+      hideAppIncludedColumn
+      hideUsersIncludedColumn
+      hideViewByFilter={true}
+      hideSortByFilter={true}
+      hideButtonGroup={true}
+    />
+  ),
+};
+
 export const CertificationOverviewStory: Story = {
   name: 'Certification Overview 1.1',
   render: () => (
@@ -172,6 +200,7 @@ export const CertificationOverviewStory: Story = {
       headerLayout="inline"
       deadlineCardPosition="header"
       headerBadgeLabel="Active"
+      hideUsersIncludedColumn={true}
     />
   ),
 };
@@ -188,14 +217,66 @@ export const CertificationOverviewV12Story: Story = {
       headerBadgeLabel="Active"
       sidebarHasTabs
       showRiskScoreColumn={true}
+      hideUsersIncludedColumn={true}
       hideSortByFilter={true}
       hideViewByFilter={true}
       showReviewerLevelColumn={true}
       showTwoButtonGroup={true}
       firstButtonLabel="View by app"
-      secondButtonLabel="Reviewer Progress"
+      secondButtonLabel="Your progress"
       showReviewerProgressButton={false}
       thirdButtonLabel="View by insight"
+      onInsightCardActionClick={(_, action) => {
+        if (action === 'Revoke') {
+          linkTo('Pages/UAR - Employee Mode', 'Record Overview 1.2');
+        }
+      }}
+    />
+  ),
+};
+
+export const CertificationOverviewV13Story: Story = {
+  name: 'Certification Overview 1.3',
+  render: () => (
+    <UAREmployeeModeV12
+      showBackButton
+      breadcrumbParentLabel="Access Reviews"
+      breadcrumbParentHref="#"
+      headerLayout="inline"
+      deadlineCardPosition="header"
+      headerBadgeLabel="Active"
+      sidebarHasTabs
+      showRiskScoreColumn={false}
+      hideSortByFilter={true}
+      hideViewByFilter={true}
+      hideUsersIncludedColumn={true}
+      showReviewerLevelColumn={true}
+      showTwoButtonGroup={true}
+      firstButtonLabel="View by app"
+      secondButtonLabel="Your progress"
+      showReviewerProgressButton={false}
+      thirdButtonLabel="View by users"
+      thirdViewPlaceholder
+      sidebarExtraContent={
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-base font-medium text-foreground">Review instructions</span>
+            <span className="w-fit text-base font-semibold text-foreground">
+              -
+            </span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-base font-medium text-foreground">Policy</span>
+            <span className="w-fit text-base font-semibold text-foreground">
+              -
+            </span>
+          </div>
+        </div>
+      }
+      showReviewedProgressBar
+      reviewedProgressCompleted={250}
+      reviewedProgressTotal={500}
+      reviewedProgressLabel="Users Reviewed"
       onInsightCardActionClick={(_, action) => {
         if (action === 'Revoke') {
           linkTo('Pages/UAR - Employee Mode', 'Record Overview 1.2');
@@ -679,7 +760,7 @@ export const RecordOverviewV12Story: Story = {
     const [reviewHistoryPanelOpen, setReviewHistoryPanelOpen] = useState(false);
     const [reviewHistoryPanelRowId, setReviewHistoryPanelRowId] = useState<string | null>(null);
     const [recommendationsActiveTab, setRecommendationsActiveTab] =
-      useState<ApplicationRecommendationsTab>('certify');
+      useState<ApplicationRecommendationsTab>('revoke');
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const revokeTextareaRef = useRef<HTMLTextAreaElement>(null);
     const modifyTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -1081,22 +1162,6 @@ export const RecordOverviewV12Story: Story = {
       return defaultReviewers[rowIndex % defaultReviewers.length] || '';
     };
 
-    // Get current reviewer for a row (reassigned or default)
-    const getCurrentReviewer = (row: any): string => {
-      if (reviewerReassignments.has(row.id)) {
-        return reviewerReassignments.get(row.id)!;
-      }
-      // Get default reviewer from row data
-      const reviewer = (row as any).currentReviewer;
-      if (reviewer && reviewer.trim()) {
-        return reviewer;
-      }
-      // Fallback to pattern-based default
-      const rowIndex = parseInt(row.id.replace('row-', '')) - 1;
-      const defaultReviewers = ['Somnath Nabajja', 'Mithilesh Hari', 'Anjali Arora'];
-      return defaultReviewers[rowIndex % defaultReviewers.length] || '';
-    };
-
     // Get common current reviewer for selected rows (if all have the same)
     const getCommonCurrentReviewer = (): string | null => {
       if (selectedRows.size === 0) return null;
@@ -1208,25 +1273,10 @@ export const RecordOverviewV12Story: Story = {
           if (revokedRows.has(row.id) || modifiedRows.has(row.id)) return 'reviewed';
           return 'pending';
         }}
-        showCurrentReviewerColumn={true}
+        showCurrentReviewerColumn={false}
         selectedRows={selectedRows}
         onSelectAll={handleSelectAll}
         onRowSelect={handleRowSelect}
-        customCurrentReviewerCell={(row) => {
-          const reviewer = getCurrentReviewer(row);
-          return (
-            <div className="flex items-center gap-2">
-              <Avatar className="h-6 w-6">
-                <AvatarFallback className="text-[10px]">
-                  {getInitialsFromName(reviewer || '')}
-                </AvatarFallback>
-              </Avatar>
-              <span className="border-b border-dashed border-current pb-[1px]">
-                {reviewer || '–'}
-              </span>
-            </div>
-          );
-        }}
         customFirstColumnCell={(row) => {
           const userIndex = parseInt(row.id.replace('row-', '')) - 1;
           const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
@@ -1926,7 +1976,7 @@ export const RecordOverviewV13Story: Story = {
     const [reviewHistoryPanelOpen, setReviewHistoryPanelOpen] = useState(false);
     const [reviewHistoryPanelRowId, setReviewHistoryPanelRowId] = useState<string | null>(null);
     const [recommendationsActiveTab, setRecommendationsActiveTab] =
-      useState<ApplicationRecommendationsTab>('certify');
+      useState<ApplicationRecommendationsTab>('revoke');
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const revokeTextareaRef = useRef<HTMLTextAreaElement>(null);
     const modifyTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -2328,22 +2378,6 @@ export const RecordOverviewV13Story: Story = {
       return defaultReviewers[rowIndex % defaultReviewers.length] || '';
     };
 
-    // Get current reviewer for a row (reassigned or default)
-    const getCurrentReviewer = (row: any): string => {
-      if (reviewerReassignments.has(row.id)) {
-        return reviewerReassignments.get(row.id)!;
-      }
-      // Get default reviewer from row data
-      const reviewer = (row as any).currentReviewer;
-      if (reviewer && reviewer.trim()) {
-        return reviewer;
-      }
-      // Fallback to pattern-based default
-      const rowIndex = parseInt(row.id.replace('row-', '')) - 1;
-      const defaultReviewers = ['Somnath Nabajja', 'Mithilesh Hari', 'Anjali Arora'];
-      return defaultReviewers[rowIndex % defaultReviewers.length] || '';
-    };
-
     // Get common current reviewer for selected rows (if all have the same)
     const getCommonCurrentReviewer = (): string | null => {
       if (selectedRows.size === 0) return null;
@@ -2454,16 +2488,19 @@ export const RecordOverviewV13Story: Story = {
               modifiedCount={modifiedRows.size}
               reviewerNames={allReviewers.map((r) => r.label)}
               daysLeft={12}
+              signedOffCompleted={250}
+              signedOffTotal={500}
             />
             <ApplicationRecommendationsCard
               className="mt-4"
               appName="Slack"
-              reviewerName="Somnath Nabajja"
+              dueDate="Jan 25, 2026"
+              timeRemaining="12 days left"
               recommendationsCount={300}
-              certifyCount={20}
+              certifyCount={0}
               revokeCount={20}
-              modifyCount={20}
-              manualReviewCount={20}
+              modifyCount={22}
+              manualReviewCount={8}
               activeTab={recommendationsActiveTab}
               onTabChange={setRecommendationsActiveTab}
             />
@@ -2489,7 +2526,7 @@ export const RecordOverviewV13Story: Story = {
         }
         tableBodyVisibleRows={10}
         scrollBodyWithTable={true}
-        showAssignToMeButton={true}
+        showAssignToMeButton={false}
         tablePageSize={10}
         key="record-overview-1-3"
         showSuggestedActionColumn={true}
@@ -2505,25 +2542,11 @@ export const RecordOverviewV13Story: Story = {
           if (revokedRows.has(row.id) || modifiedRows.has(row.id)) return 'reviewed';
           return 'pending';
         }}
-        showCurrentReviewerColumn={true}
+        showReviewerLevelColumn={false}
+        showCurrentReviewerColumn={false}
         selectedRows={selectedRows}
         onSelectAll={handleSelectAll}
         onRowSelect={handleRowSelect}
-        customCurrentReviewerCell={(row) => {
-          const reviewer = getCurrentReviewer(row);
-          return (
-            <div className="flex items-center gap-2">
-              <Avatar className="h-6 w-6">
-                <AvatarFallback className="text-[10px]">
-                  {getInitialsFromName(reviewer || '')}
-                </AvatarFallback>
-              </Avatar>
-              <span className="border-b border-dashed border-current pb-[1px]">
-                {reviewer || '–'}
-              </span>
-            </div>
-          );
-        }}
         customFirstColumnCell={(row) => {
           const userIndex = parseInt(row.id.replace('row-', '')) - 1;
           const user = sampleUsers[userIndex % sampleUsers.length] || sampleUsers[0];
